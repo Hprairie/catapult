@@ -105,8 +105,8 @@ def create_program(
     method: str = "ptx",
 ):
     if os.path.isfile(source):
-        # TODO: read in the source file into a """ """ string
-        pass
+        with open(source, "r") as f:
+            source = f.read()
     if isinstance(source, str):
         source = bytes(source, "utf-8")
     if isinstance(name, str):
