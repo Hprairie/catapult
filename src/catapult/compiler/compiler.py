@@ -68,6 +68,9 @@ class _NVRTCProgram(object):
         if self.program:
             checkCudaErrors(nvrtc.destroyProgram(self.program))
 
+    def get_source(self):
+        return self.source
+
     def compile(self, num_options, options, named_expresions):
         # TODO: Setup error handling
         if named_expresions is not None:
