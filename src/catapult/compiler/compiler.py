@@ -80,6 +80,9 @@ class _NVRTCProgram(object):
     def get_source(self):
         return self.source
 
+    def get_name(self):
+        return self.name_bytes
+
     def compile(self, num_options, options, named_expresions):
         # TODO: Setup error handling
         if named_expresions is not None:

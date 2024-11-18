@@ -112,6 +112,8 @@ def main():
     # Define argument pointers for cuLaunchKernel
     arg_values = (ctypes.c_float(a.item()), x.data_ptr(), y.data_ptr(), out.data_ptr(), ctypes.c_size_t(N))
     arg_types = (ctypes.c_float, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+    print(arg_values)
+    print(arg_types)
 
     # Launch kernel
     (err,) = cuda.cuLaunchKernel(

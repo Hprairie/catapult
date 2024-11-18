@@ -41,7 +41,12 @@ class KernelParams:
         if named_expression is not None:
             raise NotImplementedError("Compiling with named_expression is not currently enabled.")
         num_options = len(options)
-        return self.program.compile(num_options=num_options, options=options, named_expresions=named_expression)
+        compiled_code, mapping = self.program.compile(
+            num_options=num_options, options=options, named_expresions=named_expression
+        )
+        module = checkCudaErrors(cuda.cuModuleLoadData(compiled_code))
+        kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.program.get_name()))
+        return kernel, mapping
 
 
 class KernelInterface(Generic[T]):
@@ -201,7 +206,8 @@ class JITKernel(KernelInterface[T]):
             raise ValueError("THREAD GRID IS NONE")
 
         # TODO add caching
-        kernel = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
+        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
+        print(kernel)
 
         stream = self._get_stream()
 
