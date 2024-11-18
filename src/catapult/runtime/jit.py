@@ -1,6 +1,6 @@
 import ctypes
 import torch
-from cuda import cuda, driver
+from cuda import cuda
 from catapult.compiler.compiler import create_program, checkCudaErrors
 from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any
 
@@ -38,8 +38,6 @@ class KernelParams:
         return
 
     def get_compiled_kernel(self, options, named_expression):
-        if options is not None:
-            raise NotImplementedError("Compiling with options is not currently enabled.")
         if named_expression is not None:
             raise NotImplementedError("Compiling with named_expression is not currently enabled.")
         num_options = len(options)
@@ -51,8 +49,8 @@ class KernelInterface(Generic[T]):
 
     run: T
 
-    def __getitem__(self, grid, thread_grid) -> T:
-        return lambda *args, **kwargs: self.run(grid=grid, thread_grid=thread_grid, warmup=False, *args, **kwargs)
+    def __getitem__(self, grid) -> T:
+        return lambda *args, **kwargs: self.run(*args, grid=grid[0], thread_grid=grid[1], warmup=False, **kwargs)
 
 
 class JITKernel(KernelInterface[T]):
@@ -99,7 +97,7 @@ class JITKernel(KernelInterface[T]):
         self.compile_options = self._get_options(compile_options)
 
     @staticmethod
-    def _clean_values(*args):
+    def _clean_values(args):
         """
         Prepares arguments for CUDA kernel launch with proper C types using a dictionary-based approach.
 
@@ -145,7 +143,8 @@ class JITKernel(KernelInterface[T]):
         return stream
 
     def __del__(self):
-        del self.kernel_params
+        if self.kernel_params is not None:
+            del self.kernel_params
         return
 
     def _get_options(self, compile_options):
@@ -192,9 +191,8 @@ class JITKernel(KernelInterface[T]):
 
         return options
 
-    def run(self, grid=None, thread_grid=None, warmup=None, *args, **kwargs):
-
-        if kwargs is not None:
+    def run(self, *args, grid=None, thread_grid=None, warmup=None, **kwargs):
+        if len(kwargs):
             raise NotImplementedError("Passing template values as kwargs is not supported currently")
         # TODO: Make better errors
         if grid is None:
