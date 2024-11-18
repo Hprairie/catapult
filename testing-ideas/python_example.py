@@ -29,14 +29,26 @@ void saxpy(float a, float *x, float *y, float *out, size_t n)
 
 def main():
     # Init CUDA
-    (err,) = cuda.cuInit(0)
-    ASSERT_DRV(err)
+    torch.cuda.init()
+    # (err,) = cuda.cuInit(0)
+    # ASSERT_DRV(err)
 
+    print(torch.cuda.current_device())
+
+    stream = torch.cuda.current_stream()
+    print(stream.cuda_stream)
+    if stream.cuda_stream == 0:
+        new_stream = torch.cuda.Stream()
+        torch.cuda.set_stream(new_stream)
+    stream = torch.cuda.current_stream()
+    print(stream.cuda_stream)
     # Device and context
-    err, cuDevice = cuda.cuDeviceGet(0)
+    # print(torch.cuda.current_stream())
+    # err, context = cuda.cuCtxGetCurrent()
+    # ASSERT_DRV(err)
+    err, cuDevice = cuda.cuDeviceGet(torch.cuda.current_device())
     ASSERT_DRV(err)
-    err, context = cuda.cuCtxCreate(0, cuDevice)
-    ASSERT_DRV(err)
+    # print(context)
 
     # Create and compile program
     err, prog = nvrtc.nvrtcCreateProgram(str.encode(saxpy), b"saxpy.cu", 0, None, None)
@@ -72,10 +84,14 @@ def main():
     err, kernel = cuda.cuModuleGetFunction(module, b"saxpy")
     ASSERT_DRV(err)
 
-    err, stream = cuda.cuStreamCreate(0)
-    ASSERT_DRV(err)
+    print(stream)
+    # err, stream = cuda.cuStreamCreate(0)
+    # print(type(stream))
+    # stream = cuda.CUstream(stream.cuda_stream)
+    # # ASSERT_DRV(err)
+    # print(stream)
 
-    (err,) = cuda.cuStreamSynchronize(stream)
+    (err,) = cuda.cuStreamSynchronize(stream.cuda_stream)
     ASSERT_DRV(err)
 
     # Kernel configuration
@@ -96,6 +112,8 @@ def main():
     # Define argument pointers for cuLaunchKernel
     arg_values = (ctypes.c_float(a.item()), x.data_ptr(), y.data_ptr(), out.data_ptr(), ctypes.c_size_t(N))
     arg_types = (ctypes.c_float, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+    print(arg_values)
+    print(arg_types)
 
     # Launch kernel
     (err,) = cuda.cuLaunchKernel(
@@ -107,7 +125,7 @@ def main():
         1,
         1,  # block dimensions
         0,
-        stream,  # shared memory and stream
+        stream.cuda_stream,  # shared memory and stream
         (arg_values, arg_types),
         0,  # arguments
     )
@@ -125,8 +143,8 @@ def main():
     # Cleanup
     (err,) = cuda.cuModuleUnload(module)
     ASSERT_DRV(err)
-    (err,) = cuda.cuCtxDestroy(context)
-    ASSERT_DRV(err)
+    # (err,) = cuda.cuCtxDestroy(context)
+    # ASSERT_DRV(err)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import os
 from typing import Optional, Tuple, List
-from cuda import cuda, nvrtc
+from cuda import cuda, nvrtc, cudart
 
 
 class NVRTCException(Exception):
@@ -12,9 +12,11 @@ class CompileException(Exception):
 
 
 def _cudaGetErrorEnum(error):
-    if isinstance(error, cuda.driver.CUresult):
-        err, name = cuda.driver.cuGetErrorName(error)
-        return name if err == cuda.driver.CUresult.CUDA_SUCCESS else "<unknown>"
+    if isinstance(error, cuda.CUresult):
+        err, name = cuda.cuGetErrorName(error)
+        return name if err == cuda.CUresult.CUDA_SUCCESS else "<unknown>"
+    elif isinstance(error, cudart.cudaError_t):
+        return cudart.cudaGetErrorName(error)[1]
     elif isinstance(error, nvrtc.nvrtcResult):
         return nvrtc.nvrtcGetErrorString(error)[1]
     else:
@@ -23,7 +25,7 @@ def _cudaGetErrorEnum(error):
 
 def checkCudaErrors(result):
     if result[0].value:
-        raise NVRTCException("CUDA error code={}({})".format(result[0].value, _cudaGetErrorEnum(result[0])))
+        raise RuntimeError("CUDA error code={}({})".format(result[0].value, _cudaGetErrorEnum(result[0])))
     if len(result) == 1:
         return None
     elif len(result) == 2:
@@ -42,6 +44,10 @@ class _NVRTCProgram(object):
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         method: str = "ptx",
     ):
+        self.source_bytes = source
+        self.name_bytes = name
+        print(source)
+        print(name)
         source = source.decode("UTF-8")
         name = name.decode("UTF-8")
         self.source = source
@@ -61,19 +67,28 @@ class _NVRTCProgram(object):
                 f"Error instantiating kernel: {self.name}",
                 f"Value num_headers > 0, but include_names is None type",
             )
-        self.program = checkCudaErrors(nvrtc.nvrtcCreateProgram(source, name, num_headers, headers, include_names))
+        print(num_headers, headers, include_names)
+        self.program = checkCudaErrors(
+            nvrtc.nvrtcCreateProgram(self.source_bytes, self.name_bytes, num_headers, headers, include_names)
+        )
         self.method = method
 
     def __del__(self):
         if self.program:
             checkCudaErrors(nvrtc.destroyProgram(self.program))
 
+    def get_source(self):
+        return self.source
+
+    def get_name(self):
+        return self.name_bytes
+
     def compile(self, num_options, options, named_expresions):
         # TODO: Setup error handling
         if named_expresions is not None:
             for name in named_expresions:
                 checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, name))
-        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, options))
+        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(options), options))
         mapping = None
         if named_expresions:
             mapping = {}
