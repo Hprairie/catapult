@@ -46,8 +46,6 @@ class _NVRTCProgram(object):
     ):
         self.source_bytes = source
         self.name_bytes = name
-        print(source)
-        print(name)
         source = source.decode("UTF-8")
         name = name.decode("UTF-8")
         self.source = source
@@ -67,15 +65,13 @@ class _NVRTCProgram(object):
                 f"Error instantiating kernel: {self.name}",
                 f"Value num_headers > 0, but include_names is None type",
             )
-        print(num_headers, headers, include_names)
         self.program = checkCudaErrors(
             nvrtc.nvrtcCreateProgram(self.source_bytes, self.name_bytes, num_headers, headers, include_names)
         )
         self.method = method
 
     def __del__(self):
-        if self.program:
-            checkCudaErrors(nvrtc.destroyProgram(self.program))
+        pass
 
     def get_source(self):
         return self.source
