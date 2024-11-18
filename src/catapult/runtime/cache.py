@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Optional, Dict
 from catapult.runtime.errors import CacheError
 
-CACHE_DIR = os.getenv("CATAPULT_CACHE")
-
 
 def get_cache_path():
     return os.getenv("CATAPULT_CACHE", Path.home())
@@ -40,6 +38,18 @@ class TemplateCacheManager(ABC):
 class LocalCacheManager(TemplateCacheManager):
     def __init__(self, key) -> None:
         self.key = key
+
+    def get_file(self, filename) -> Optional[str]:
+        pass
+
+    def get_group(self, filenames) -> Optional[Dict[str, str]]:
+        pass
+
+    def put(self, filenames) -> Optional[str]:
+        pass
+
+    def put_group(self, filenames) -> Optional[Dict[str, str]]:
+        pass
 
 
 def get_cached_ptx(source, kernel_name):
@@ -101,8 +111,3 @@ def _get_source_hash(source):
         return hashlib.sha256(source.encode()).hexdigest()
     else:
         raise ValueError(f"Attempting to create a cached ptx with a source type of {type(source)}")
-
-
-__all__ = [
-    "saved_cached_ptx",
-]

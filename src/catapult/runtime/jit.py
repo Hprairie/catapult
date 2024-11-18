@@ -207,7 +207,6 @@ class JITKernel(KernelInterface[T]):
 
         # TODO add caching
         kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
-        print(kernel)
 
         stream = self._get_stream()
 

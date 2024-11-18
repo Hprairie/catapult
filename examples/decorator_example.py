@@ -1,8 +1,8 @@
 import torch
-from catapult.runtime.jit import jit
+import catapult
 
 
-@jit(kernel_path="example_kernel.cu", kernel_name="saxpy")
+@catapult.jit(kernel_path="example_kernel.cu", kernel_name="saxpy")
 def testing(kernel, a, x, y, N):
     output = torch.zeros_like(x)
 
