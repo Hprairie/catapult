@@ -2,7 +2,7 @@ import ctypes
 import torch
 from cuda import cuda, driver
 from catapult.compiler.compiler import create_program, checkCudaErrors
-from typing import List, TypeVar, Generic, Optional, overload, Callable, Union
+from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any
 
 T = TypeVar("T")
 
@@ -77,7 +77,6 @@ class JITKernel(KernelInterface[T]):
             method=method,
         )
         self.debug = debug
-        self.compile_options = compile_options
         self.launch_metadata = launch_metadata
 
         if not torch.cuda.is_initialized():
@@ -95,6 +94,9 @@ class JITKernel(KernelInterface[T]):
                 cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, self.cuDevice
             )
         )
+
+        # Compile options need to be set after self.major and self.minor
+        self.compile_options = self._get_options(compile_options)
 
     @staticmethod
     def _clean_values(*args):
@@ -146,6 +148,50 @@ class JITKernel(KernelInterface[T]):
         del self.kernel_params
         return
 
+    def _get_options(self, compile_options):
+        """
+        Get compilation options for the CUDA kernel, handling GPU architecture specifications.
+
+        Returns:
+            List[bytes]: List of compilation options as bytes objects
+        """
+        # Start with default options if provided during initialization
+        options = list(compile_options) if compile_options else []
+
+        # Convert all string options to bytes if they aren't already
+        options = [opt if isinstance(opt, bytes) else opt.encode("ascii") for opt in options]
+
+        # Generate architecture argument based on compute capability
+        arch_spec = f"sm_{self.major}{self.minor}"
+
+        # Check if there's an existing architecture specification
+        has_arch_spec = False
+        for i, opt in enumerate(options):
+            opt_str = opt.decode("ascii")
+            if opt_str.startswith("--gpu-architecture="):
+                # Update existing architecture specification
+                current_arch = opt_str.split("=")[1]
+                # Combine architectures if different
+                if arch_spec not in current_arch:
+                    new_archs = f"{current_arch},{arch_spec}"
+                    options[i] = f"--gpu-architecture={new_archs}".encode("ascii")
+                has_arch_spec = True
+                break
+
+        # Add new architecture specification if none exists
+        if not has_arch_spec:
+            options.append(f"--gpu-architecture={arch_spec}".encode("ascii"))
+
+        # Add default options if their keys aren't already present
+        default_opts = [b"--fmad=false"]
+        for default_opt in default_opts:
+            default_key = default_opt.split(b"=")[0]
+            # Check if any existing option starts with this key
+            if not any(opt.startswith(default_key) for opt in options):
+                options.append(default_opt)
+
+        return options
+
     def run(self, grid=None, thread_grid=None, warmup=None, *args, **kwargs):
 
         if kwargs is not None:
@@ -157,7 +203,7 @@ class JITKernel(KernelInterface[T]):
             raise ValueError("THREAD GRID IS NONE")
 
         # TODO add caching
-        kernel = self.kernel_params.get_compiled_kernel(options=None, named_expression=None)
+        kernel = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
 
         stream = self._get_stream()
 
@@ -193,25 +239,31 @@ def jit(fn: T) -> JITKernel[T]: ...
 @overload
 def jit(
     *,
-    method=None,
+    kernel_path: Optional[str] = None,
+    kernel_name: Optional[str] = None,
+    compile_options: Optional[List[str]] = None,
+    method: Optional[str] = None,
     launch_metadata: Optional[Callable] = None,
+    template_params: Optional[List[str]] = None,
+    headers: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Callable[[T], JITKernel[T]]: ...
 
 
 def jit(
-    fn: T = None,
+    fn: Optional[T] = None,
+    *,
     kernel_path: Optional[str] = None,
     kernel_name: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
-    method=None,
+    method: Optional[str] = None,
     launch_metadata: Optional[Callable] = None,
     template_params: Optional[List[str]] = None,
     headers: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Union[JITKernel[T], Callable[[T], JITKernel[T]]]:
-    def decorator(fn: T) -> JITKernel[T]:
-        def wrapper(*args, **kwargs):
+    def decorator(func: T) -> JITKernel[T]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             kernel = JITKernel(
                 kernel_path=kernel_path,
                 kernel_name=kernel_name,
@@ -222,12 +274,10 @@ def jit(
                 headers=headers,
                 method=method,
             )
-            return fn(kernel, *args, **kwargs)
+            return func(kernel, *args, **kwargs)
 
         return wrapper
 
     if fn is not None:
         return decorator(fn)
-
-    else:
-        return decorator
+    return decorator
