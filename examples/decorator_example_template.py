@@ -6,8 +6,8 @@ from cuda import nvrtc
 @catapult.jit(
     kernel_path="example_template.cuh",
     kernel_name="saxpy",
-    template_params=["N"],
-    compile_options=["--std=c++14"],  # Added more options
+    template_params=["N"],  # We require template params to be specified for safety
+    # compile_options=["--std=c++14"],  # Added more options
 )
 def testing(kernel, a, x, y, N):
     try:

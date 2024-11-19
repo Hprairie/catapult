@@ -77,7 +77,6 @@ class _NVRTCProgram(object):
         return self.source
 
     def get_name(self):
-        print(self.name_bytes)
         return self.name_bytes
 
     def compile(self, num_options, options, named_expresion):
