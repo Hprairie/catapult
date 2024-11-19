@@ -16,6 +16,7 @@ from .runtime import (
     uint64,
     void,
 )
+from .utils import custom_op, register_autograd
 from .runtime.jit import jit
 
 __all__ = [
@@ -36,4 +37,6 @@ __all__ = [
     "uint32",
     "uint64",
     "void",
+    "custom_op",
+    "register_autograd",
 ]
