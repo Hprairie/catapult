@@ -16,14 +16,14 @@ class KernelParams:
         kernel_name: str,
         is_template: bool,
         template_params: List[str],
-        headers: Optional[List[str]],
+        include: Optional[List[str]],
         method: Optional[str],
     ) -> None:
         self.kernel_path = kernel_path
         self.kernel_name = kernel_name
         self.is_template = is_template
         self.template_params = template_params
-        self.headers = headers
+        self.headers = include
         if not isinstance(method, str):
             self.method = "ptx"
         else:
@@ -37,12 +37,21 @@ class KernelParams:
         del self.program
         return
 
-    def get_compiled_kernel(self, options, named_expression):
-        if named_expression is not None:
-            raise NotImplementedError("Compiling with named_expression is not currently enabled.")
+    def _get_template(self, template_vals):
+        template = []
+        for key in self.template_params:
+            template.append(str(template_vals[key]))
+        return f"{self.kernel_name}<{', '.join(template)}>"
+
+    def get_compiled_kernel(self, options, template_vals):
+        named_expression = None
+        if template_vals is not None:
+            named_expression = self._get_template(template_vals)
+        # if self.is_template or template_vals is not None:
+        #     raise NotImplementedError("Compiling with named_expression is not currently enabled.")
         num_options = len(options)
         compiled_code, mapping = self.program.compile(
-            num_options=num_options, options=options, named_expresions=named_expression
+            num_options=num_options, options=options, named_expresion=named_expression
         )
         module = checkCudaErrors(cuda.cuModuleLoadData(compiled_code))
         kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.program.get_name()))
@@ -61,13 +70,13 @@ class KernelInterface(Generic[T]):
 class JITKernel(KernelInterface[T]):
     def __init__(
         self,
-        kernel_path,
-        kernel_name,
-        compile_options,
-        debug,
+        kernel_path: str,
+        kernel_name: str,
+        compile_options: List[str],
+        debug: bool,
         launch_metadata,
-        template_params,
-        headers,
+        template_params: List[str],
+        include: List[str],
         method,
     ) -> None:
         self.templated = template_params is not None
@@ -76,7 +85,7 @@ class JITKernel(KernelInterface[T]):
             kernel_name=kernel_name,
             is_template=self.templated,
             template_params=template_params,
-            headers=headers,
+            include=include,
             method=method,
         )
         self.debug = debug
@@ -197,8 +206,6 @@ class JITKernel(KernelInterface[T]):
         return options
 
     def run(self, *args, grid=None, thread_grid=None, warmup=None, **kwargs):
-        if len(kwargs):
-            raise NotImplementedError("Passing template values as kwargs is not supported currently")
         # TODO: Make better errors
         if grid is None:
             raise ValueError("GRID IS NONE")
@@ -206,7 +213,7 @@ class JITKernel(KernelInterface[T]):
             raise ValueError("THREAD GRID IS NONE")
 
         # TODO add caching
-        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
+        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
 
         stream = self._get_stream()
 
@@ -248,7 +255,7 @@ def jit(
     method: Optional[str] = None,
     launch_metadata: Optional[Callable] = None,
     template_params: Optional[List[str]] = None,
-    headers: Optional[List[str]] = None,
+    include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Callable[[T], JITKernel[T]]: ...
 
@@ -262,7 +269,7 @@ def jit(
     method: Optional[str] = None,
     launch_metadata: Optional[Callable] = None,
     template_params: Optional[List[str]] = None,
-    headers: Optional[List[str]] = None,
+    include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Union[JITKernel[T], Callable[[T], JITKernel[T]]]:
     def decorator(func: T) -> JITKernel[T]:
@@ -274,7 +281,7 @@ def jit(
                 debug=debug,
                 launch_metadata=launch_metadata,
                 template_params=template_params,
-                headers=headers,
+                include=include,
                 method=method,
             )
             return func(kernel, *args, **kwargs)

@@ -77,19 +77,19 @@ class _NVRTCProgram(object):
         return self.source
 
     def get_name(self):
+        print(self.name_bytes)
         return self.name_bytes
 
-    def compile(self, num_options, options, named_expresions):
+    def compile(self, num_options, options, named_expresion):
         # TODO: Setup error handling
-        if named_expresions is not None:
-            for name in named_expresions:
-                checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, name))
+        if named_expresion is not None:
+            if isinstance(named_expresion, str):
+                named_expresion = bytes(named_expresion, "utf-8")
+            checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expresion))
         checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(options), options))
         mapping = None
-        if named_expresions:
-            mapping = {}
-            for name in named_expresions:
-                mapping[name] = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, name))
+        if named_expresion:
+            self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expresion))
 
         if self.method == "cubin":
             # TODO: Check if this works
