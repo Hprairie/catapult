@@ -3,12 +3,35 @@ import torch
 from cuda import cuda
 from catapult.compiler.compiler import create_program, checkCudaErrors
 from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any
+from . import types
+
 
 T = TypeVar("T")
 
 
 class KernelParams:
     """Represents a Kernel Params of a @jit'ed function"""
+
+    _template_conversions = {
+        types.int1: lambda arg: str(arg),
+        types.int8: lambda arg: str(arg),
+        types.int16: lambda arg: str(arg),
+        types.int32: lambda arg: str(arg),
+        types.int64: lambda arg: str(arg),
+        types.float16: lambda arg: str(arg),
+        types.float32: lambda arg: str(arg),
+        types.float64: lambda arg: str(arg),
+        types.bfloat16: lambda arg: str(arg),
+        types.uint8: lambda arg: str(arg),
+        types.uint16: lambda arg: str(arg),
+        types.uint32: lambda arg: str(arg),
+        types.uint64: lambda arg: str(arg),
+        types.void: lambda arg: str(arg),
+        int: lambda arg: str(arg),
+        float: lambda arg: str(arg),
+        str: lambda arg: str(arg),
+        bool: lambda arg: str(arg).lower(),
+    }
 
     def __init__(
         self,
@@ -40,7 +63,10 @@ class KernelParams:
     def _get_template(self, template_vals):
         template = []
         for key in self.template_params:
-            template.append(str(template_vals[key]))
+            if key not in self._template_conversions:
+                # TODO: Get better error handeling
+                raise ValueError("NOT ALLOWABLE TYPE")
+            template.append(self._template_conversions[key](template_vals[key]))
         return f"{self.kernel_name}<{', '.join(template)}>"
 
     def get_compiled_kernel(self, options, template_vals):
@@ -68,6 +94,7 @@ class KernelInterface(Generic[T]):
 
 
 class JITKernel(KernelInterface[T]):
+
     def __init__(
         self,
         kernel_path: str,
