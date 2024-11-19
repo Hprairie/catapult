@@ -63,10 +63,10 @@ class KernelParams:
     def _get_template(self, template_vals):
         template = []
         for key in self.template_params:
-            if key not in self._template_conversions:
+            if type(template_vals[key]) not in self._template_conversions:
                 # TODO: Get better error handeling
                 raise ValueError("NOT ALLOWABLE TYPE")
-            template.append(self._template_conversions[key](template_vals[key]))
+            template.append(self._template_conversions[type(template_vals[key])](template_vals[key]))
         return f"{self.kernel_name}<{', '.join(template)}>"
 
     def get_compiled_kernel(self, options, template_vals):

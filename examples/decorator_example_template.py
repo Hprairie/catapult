@@ -10,19 +10,19 @@ from cuda import nvrtc
     # compile_options=["--std=c++14"],  # Added more options
 )
 def testing(kernel, a, x, y, N):
-    try:
-        output = torch.zeros_like(x)
-        kernel[(32, 1, 1), (128, 1, 1)](a, x, y, output, N=N)
-        return output
-    except RuntimeError as e:
-        # Get the compilation log
-        program = kernel.kernel_params.program.program
-        log_size = nvrtc.nvrtcGetProgramLogSize(program)[1]
-        log = b" " * log_size
-        nvrtc.nvrtcGetProgramLog(program, log)
-        print("Compilation Error Log:")
-        print(log.decode())
-        raise e
+    output = torch.zeros_like(x)
+    kernel[(32, 1, 1), (128, 1, 1)](a, x, y, output, N=N)
+    return output
+
+    # except RuntimeError as e:
+    #     # Get the compilation log
+    #     program = kernel.kernel_params.program.program
+    #     log_size = nvrtc.nvrtcGetProgramLogSize(program)[1]
+    #     log = b" " * log_size
+    #     nvrtc.nvrtcGetProgramLog(program, log)
+    #     print("Compilation Error Log:")
+    #     print(log.decode())
+    #     raise e
 
 
 NUM_THREADS = 128
