@@ -1,10 +1,13 @@
+from typing import List, Optional
+
+
 class dtype:
     SINT_TYPES = ["int8", "int16", "int32", "int64"]
     UINT_TYPES = ["int1", "uint8", "uint16", "uint32", "uint64"]
     FP_TYPES = ["fp16", "bf16", "fp32", "fp64"]
     OTHER_TYPES = ["void"]
 
-    def __init__(self, name: str, cuda_type: str, include_files: str | None = None):
+    def __init__(self, name: str, cuda_type: str, include_files: Optional[List[str]] = None):
         self.name = name
         self.cuda_type = cuda_type
         self.include_files = include_files
