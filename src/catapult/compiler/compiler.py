@@ -110,13 +110,14 @@ class _NVRTCProgram(object):
 def create_program(
     source: str | bytes,
     name: str | bytes,
+    calling_dir: str,
     num_headers: int = 0,
     headers: Optional[Tuple[bytes] | List[bytes]] = None,
     include_names: Optional[Tuple[bytes] | List[bytes]] = None,
     method: str = "ptx",
 ):
-    if os.path.isfile(source):
-        with open(source, "r") as f:
+    if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
+        with open(os.path.join(calling_dir, source), "r") as f:
             source = f.read()
     if isinstance(source, str):
         source = bytes(source, "utf-8")
