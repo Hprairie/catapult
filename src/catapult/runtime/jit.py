@@ -85,11 +85,11 @@ class KernelParams:
 
     def get_compiled_kernel(self, options, template_vals):
         named_expression = None
-        if template_vals is not None:
+        if template_vals is not None and template_vals:  # Check if not None and not empty
             named_expression, extra_includes = self._get_template(template_vals)
         num_options = len(options)
         compiled_code, mapping = self.program.compile(
-            num_options=num_options, options=options, named_expresion=named_expression
+            num_options=num_options, options=options, named_expression=named_expression
         )
         module = checkCudaErrors(cuda.cuModuleLoadData(compiled_code))
         kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.program.get_name()))
