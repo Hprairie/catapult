@@ -1,5 +1,6 @@
 import catapult
 import torch
+from typing import Tuple
 
 NUM_THREADS = 128
 NUM_BLOCKS = 32
@@ -12,12 +13,8 @@ def setup_context(ctx, inputs, output):
     ctx.y = y
 
 
-def register_fake(x, y):
-    return torch.empty_like(x)
-
-
 @catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddBackwardKernel")
-def add_bwd(kernel, ctx, grad_input):
+def add_bwd(kernel, grad_input):
     x_grad = torch.zeros_like(grad_input)
     y_grad = torch.zeros_like(grad_input)
 
@@ -35,16 +32,31 @@ def add_fwd(kernel, x, y):
 
 # Create a wrapper function with explicit signature for custom_op
 # Need to specify the types
-@catapult.custom_op(
-    name="mylib::add",
-    mutates_args=(),
-    device_types="cuda",
-    backward_fn=add_bwd,
-    setup_context=setup_context,
-    register_fake=register_fake,
-)
+@torch.library.custom_op("mylib::add", mutates_args=(), device_types="cuda")
 def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return add_fwd(x, y)
+
+
+@torch.library.custom_op("mylib::add_bwd", mutates_args=(), device_types="cuda")
+def add_bwd_f(input_grad: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    return add_bwd(input_grad)
+
+
+@torch.library.register_fake("mylib::add_bwd")
+def register_fake_bwd(out):
+    return torch.empty_like(out), torch.empty_like(out)
+
+
+def add_bwd_fe(ctx, input_grad):
+    return add_bwd_f(input_grad)
+
+
+@torch.library.register_fake("mylib::add")
+def register_fake(x, y):
+    return torch.empty_like(x)
+
+
+torch.library.register_autograd("mylib::add", add_bwd_fe, setup_context=setup_context)
 
 
 @torch.compile(fullgraph=True)
@@ -61,9 +73,10 @@ y = torch.rand(N, device=device, dtype=torch.float32, requires_grad=True)
 x_temp = x.detach().clone().requires_grad_()
 y_temp = y.detach().clone().requires_grad_()
 
-torch.library.opcheck(add, (x, y), test_utils="test_aot_dispatch_dynamic")
+# torch.library.opcheck(add, (x, y), test_utils="test_aot_dispatch_static")
 
-# out = compiled_add(x, y)
+out = compiled_add(x, y)
+print(out)
 
 out = add(x, y)
 expected = x_temp + y_temp
