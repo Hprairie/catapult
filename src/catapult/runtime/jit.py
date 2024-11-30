@@ -37,6 +37,8 @@ class KernelParams:
         bool: lambda arg: str(arg).lower(),
     }
 
+    _special_kernel_kwargs = ["stream", "smem"]
+
     def __init__(
         self,
         kernel_path: str,
@@ -73,6 +75,8 @@ class KernelParams:
         template = []
         extra_includes = []
         for key in self.template_params:
+            if key in self._special_kernel_kwargs:
+                continue
             val = template_vals[key]
             if type(val) not in self._template_conversions:
                 # TODO: Get better error handeling
@@ -255,8 +259,6 @@ class JITKernel(KernelInterface[T]):
         # TODO add caching
         kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
 
-        stream = self._get_stream()
-
         arg_values, arg_types = self._clean_values(args)
 
         checkCudaErrors(
@@ -268,8 +270,8 @@ class JITKernel(KernelInterface[T]):
                 thread_grid[0],
                 thread_grid[1],
                 thread_grid[2],
-                0,
-                stream.cuda_stream,
+                kwargs.get("smem", 0),
+                kwargs.get("stream", self._get_stream().cuda_stream),
                 (arg_values, arg_types),
                 0,
             )
