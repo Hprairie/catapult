@@ -1,3 +1,6 @@
+import os
+import sys
+import inspect
 import ctypes
 import torch
 from cuda import cuda
@@ -37,10 +40,13 @@ class KernelParams:
         bool: lambda arg: str(arg).lower(),
     }
 
+    _special_kernel_kwargs = ["stream", "smem"]
+
     def __init__(
         self,
         kernel_path: str,
         kernel_name: str,
+        calling_dir: str,
         is_template: bool,
         template_params: Optional[List[str]],
         include: Optional[List[str]],
@@ -48,6 +54,7 @@ class KernelParams:
     ) -> None:
         self.kernel_path = kernel_path
         self.kernel_name = kernel_name
+        self.callilng_dir = calling_dir
         self.is_template = is_template
         self.template_params = template_params
         self.headers = include
@@ -57,7 +64,13 @@ class KernelParams:
             self.method = method
 
         self.program = create_program(
-            source=kernel_path, name=kernel_name, num_headers=0, headers=None, include_names=None, method=self.method
+            source=kernel_path,
+            name=kernel_name,
+            calling_dir=calling_dir,
+            num_headers=0,
+            headers=None,
+            include_names=None,
+            method=self.method,
         )
 
     def __del__(self):
@@ -73,6 +86,8 @@ class KernelParams:
         template = []
         extra_includes = []
         for key in self.template_params:
+            if key in self._special_kernel_kwargs:
+                continue
             val = template_vals[key]
             if type(val) not in self._template_conversions:
                 # TODO: Get better error handeling
@@ -111,6 +126,7 @@ class JITKernel(KernelInterface[T]):
         self,
         kernel_path: str,
         kernel_name: str,
+        calling_dir: str,
         compile_options: Optional[List[str]] = None,
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
@@ -121,6 +137,7 @@ class JITKernel(KernelInterface[T]):
         self.kernel_params = KernelParams(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            calling_dir=calling_dir,
             is_template=self.templated,
             template_params=template_params,
             include=include,
@@ -255,8 +272,6 @@ class JITKernel(KernelInterface[T]):
         # TODO add caching
         kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
 
-        stream = self._get_stream()
-
         arg_values, arg_types = self._clean_values(args)
 
         checkCudaErrors(
@@ -268,8 +283,8 @@ class JITKernel(KernelInterface[T]):
                 thread_grid[0],
                 thread_grid[1],
                 thread_grid[2],
-                0,
-                stream.cuda_stream,
+                kwargs.get("smem", 0),
+                kwargs.get("stream", self._get_stream().cuda_stream),
                 (arg_values, arg_types),
                 0,
             )
@@ -335,9 +350,13 @@ def jit(
             # TODO: Create better errors
             raise ValueError("kernel_path or kernel_name are not set.")
 
+        calling_script = os.path.abspath(inspect.stack()[1].filename)
+        calling_dir = os.path.dirname(calling_script)
+
         kernel = JITKernel(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            calling_dir=calling_dir,
             compile_options=compile_options,
             debug=debug,
             template_params=template_params,
