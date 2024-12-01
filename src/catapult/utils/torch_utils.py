@@ -28,6 +28,8 @@ def custom_op(
         if register_fake is not None:
             torch.library.register_fake(name)(register_fake)
 
+        decorated_fn.kernel = fn.kernel
+
         return decorated_fn
 
     return decorator

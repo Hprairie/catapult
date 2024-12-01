@@ -1,5 +1,6 @@
 import os
 import sys
+import functools
 import inspect
 import ctypes
 import torch
@@ -364,8 +365,13 @@ def jit(
             method=method,
         )
 
+        @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> R:
-            return func(kernel, *args, **kwargs)
+            return func(*args, **kwargs)
+
+        wrapper.kernel = kernel
+
+        # wrapper._schema = torch.library.infer_schema(func)
 
         return wrapper
 

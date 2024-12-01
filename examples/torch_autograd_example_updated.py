@@ -13,8 +13,9 @@ def setup_context(ctx, inputs, output):
     ctx.y = y
 
 
+@catapult.custom_op("mylib::add_bwd", mutates_args=(), device_types="cuda")
 @catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddBackwardKernel")
-def add_bwd(grad_input):
+def add_bwd(grad_input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     x_grad = torch.zeros_like(grad_input)
     y_grad = torch.zeros_like(grad_input)
 
@@ -22,33 +23,18 @@ def add_bwd(grad_input):
     return x_grad, y_grad
 
 
-@catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddKernel")
-def add_fwd(x, y):
-    output = torch.zeros_like(x)
-
-    add_fwd.kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](x, y, output, N)
-    return output
-
-
-# Create a wrapper function with explicit signature for custom_op
-# Need to specify the types
-@torch.library.custom_op("mylib::add", mutates_args=(), device_types="cuda")
-def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    return add_fwd(x, y)
-
-
-@torch.library.custom_op("mylib::add_bwd", mutates_args=(), device_types="cuda")
-def add_bwd_f(input_grad: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    return add_bwd(input_grad)
-
-
 @torch.library.register_fake("mylib::add_bwd")
 def register_fake_bwd(out):
     return torch.empty_like(out), torch.empty_like(out)
 
 
-def add_bwd_fe(ctx, input_grad):
-    return add_bwd_f(input_grad)
+@catapult.custom_op("mylib::add", mutates_args=(), device_types="cuda")
+@catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddKernel")
+def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    output = torch.zeros_like(x)
+
+    add.kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](x, y, output, N)
+    return output
 
 
 @torch.library.register_fake("mylib::add")
@@ -56,7 +42,11 @@ def register_fake(x, y):
     return torch.empty_like(x)
 
 
-torch.library.register_autograd("mylib::add", add_bwd_fe, setup_context=setup_context)
+def add_bwd_f(ctx, input_grad):
+    return add_bwd(input_grad)
+
+
+torch.library.register_autograd("mylib::add", add_bwd_f, setup_context=setup_context)
 
 
 @torch.compile(fullgraph=True)

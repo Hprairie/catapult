@@ -13,9 +13,9 @@ N = NUM_THREADS * NUM_BLOCKS
     template_params=["N"],  # We require template params to be specified for safety
     # compile_options=["--std=c++14"],  # Added more options
 )
-def testing(kernel, a, x, y):
+def testing(a, x, y):
     output = torch.zeros_like(x)
-    kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](a, x, y, output, N=N)
+    testing.kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](a, x, y, output, N=N)
     return output
     #     # Get the compilation log
     #     program = kernel.kernel_params.program.program
