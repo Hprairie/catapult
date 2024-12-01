@@ -1,3 +1,6 @@
+import os
+import sys
+import inspect
 import ctypes
 import torch
 from cuda import cuda
@@ -43,6 +46,7 @@ class KernelParams:
         self,
         kernel_path: str,
         kernel_name: str,
+        calling_dir: str,
         is_template: bool,
         template_params: Optional[List[str]],
         include: Optional[List[str]],
@@ -50,6 +54,7 @@ class KernelParams:
     ) -> None:
         self.kernel_path = kernel_path
         self.kernel_name = kernel_name
+        self.callilng_dir = calling_dir
         self.is_template = is_template
         self.template_params = template_params
         self.headers = include
@@ -59,7 +64,13 @@ class KernelParams:
             self.method = method
 
         self.program = create_program(
-            source=kernel_path, name=kernel_name, num_headers=0, headers=None, include_names=None, method=self.method
+            source=kernel_path,
+            name=kernel_name,
+            calling_dir=calling_dir,
+            num_headers=0,
+            headers=None,
+            include_names=None,
+            method=self.method,
         )
 
     def __del__(self):
@@ -115,6 +126,7 @@ class JITKernel(KernelInterface[T]):
         self,
         kernel_path: str,
         kernel_name: str,
+        calling_dir: str,
         compile_options: Optional[List[str]] = None,
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
@@ -125,6 +137,7 @@ class JITKernel(KernelInterface[T]):
         self.kernel_params = KernelParams(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            calling_dir=calling_dir,
             is_template=self.templated,
             template_params=template_params,
             include=include,
@@ -337,9 +350,13 @@ def jit(
             # TODO: Create better errors
             raise ValueError("kernel_path or kernel_name are not set.")
 
+        calling_script = os.path.abspath(inspect.stack()[1].filename)
+        calling_dir = os.path.dirname(calling_script)
+
         kernel = JITKernel(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            calling_dir=calling_dir,
             compile_options=compile_options,
             debug=debug,
             template_params=template_params,
