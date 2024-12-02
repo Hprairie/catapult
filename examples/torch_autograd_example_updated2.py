@@ -7,38 +7,43 @@ NUM_BLOCKS = 32
 N = NUM_THREADS * NUM_BLOCKS
 
 
+def setup_context(ctx, inputs, output):
+    x, y = inputs
+    ctx.x = x
+    ctx.y = y
 
-def register_fake_bwd(out):
-    return torch.empty_like(out), torch.empty_like(out)
 
-@catapult.custom_op("mylib::add_bwd", mutates_args=(), device_types="cuda", register_fake=register_fake_bwd)
+@catapult.utils.custom_backward_op("mylib::add_bwd", mutates_args=(), device_types="cuda")
 @catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddBackwardKernel")
-def add_bwd(grad_input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def add_bwd(ctx, grad_input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     x_grad = torch.zeros_like(grad_input)
     y_grad = torch.zeros_like(grad_input)
 
     add_bwd.kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](grad_input, x_grad, y_grad, N)
     return x_grad, y_grad
 
-def add_bwd_f(ctx, input_grad):
-    return add_bwd(input_grad)
 
-def setup_context(ctx, inputs, output):
-    x, y = inputs
-    ctx.x = x
-    ctx.y = y
-
-def register_fake(x, y):
-    return torch.empty_like(x)
+@torch.library.register_fake("mylib::add_bwd")
+def register_fake_bwd(out):
+    return torch.empty_like(out), torch.empty_like(out)
 
 
-@catapult.custom_op("mylib::add", mutates_args=(), device_types="cuda", register_fake=register_fake, backward_fn=add_bwd_f, setup_context=setup_context)
+@catapult.custom_op("mylib::add", mutates_args=(), device_types="cuda")
 @catapult.jit(kernel_path="example_torch.cu", kernel_name="vectorAddKernel")
 def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     output = torch.zeros_like(x)
 
     add.kernel[(NUM_BLOCKS, 1, 1), (NUM_THREADS, 1, 1)](x, y, output, N)
     return output
+
+
+@torch.library.register_fake("mylib::add")
+def register_fake(x, y):
+    return torch.empty_like(x)
+
+
+
+torch.library.register_autograd("mylib::add", add_bwd, setup_context=setup_context)
 
 
 @torch.compile(fullgraph=True)
