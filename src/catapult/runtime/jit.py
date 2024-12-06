@@ -261,8 +261,8 @@ class JITKernel(KernelInterface[T]):
                 options.append(default_opt)
 
         return options
-    
-    def _get_signature(self,*args, **kwargs):
+
+    def _get_signature(self, *args, **kwargs):
         constexpr_vals = []
         for key, val in kwargs.items():
             if key in self.kernel_params.template_params:
@@ -279,7 +279,7 @@ class JITKernel(KernelInterface[T]):
             raise ValueError("GRID IS NONE")
         if thread_grid is None:
             raise ValueError("THREAD GRID IS NONE")
-        
+
         # TODO: Abstract this to a backend driver
         device = torch.cuda.current_device()
 
