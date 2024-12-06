@@ -4,14 +4,43 @@ import inspect
 import ctypes
 import torch
 from cuda import cuda
+from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any, Protocol
+
 from catapult.compiler.compiler import create_program, checkCudaErrors
-from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any
+
+from . import types
+from .types import dtype
+
 
 T = TypeVar("T")
+R = TypeVar("R")
 
 
 class KernelParams:
     """Represents a Kernel Params of a @jit'ed function"""
+
+    _template_conversions = {
+        types.int1: lambda arg: str(arg),
+        types.int8: lambda arg: str(arg),
+        types.int16: lambda arg: str(arg),
+        types.int32: lambda arg: str(arg),
+        types.int64: lambda arg: str(arg),
+        types.float16: lambda arg: str(arg),
+        types.float32: lambda arg: str(arg),
+        types.float64: lambda arg: str(arg),
+        types.bfloat16: lambda arg: str(arg),
+        types.uint8: lambda arg: str(arg),
+        types.uint16: lambda arg: str(arg),
+        types.uint32: lambda arg: str(arg),
+        types.uint64: lambda arg: str(arg),
+        types.void: lambda arg: str(arg),
+        int: lambda arg: str(arg),
+        float: lambda arg: str(arg),
+        str: lambda arg: str(arg),
+        bool: lambda arg: str(arg).lower(),
+    }
+
+    _special_kernel_kwargs = ["stream", "smem"]
 
     def __init__(
         self,
@@ -19,8 +48,8 @@ class KernelParams:
         kernel_name: str,
         calling_dir: str,
         is_template: bool,
-        template_params: List[str],
-        headers: Optional[List[str]],
+        template_params: Optional[List[str]],
+        include: Optional[List[str]],
         method: Optional[str],
     ) -> None:
         self.kernel_path = kernel_path
@@ -28,7 +57,7 @@ class KernelParams:
         self.callilng_dir = calling_dir
         self.is_template = is_template
         self.template_params = template_params
-        self.headers = headers
+        self.headers = include
         if not isinstance(method, str):
             self.method = "ptx"
         else:
@@ -48,12 +77,34 @@ class KernelParams:
         del self.program
         return
 
-    def get_compiled_kernel(self, options, named_expression):
-        if named_expression is not None:
-            raise NotImplementedError("Compiling with named_expression is not currently enabled.")
+    def _get_template(self, template_vals):
+        if self.template_params is None:
+            # TODO: Better error messaging
+            raise ValueError(
+                "No `template_params` were passed to catapult.jit, however **kwargs where passed to kernel."
+            )
+        template = []
+        extra_includes = []
+        for key in self.template_params:
+            if key in self._special_kernel_kwargs:
+                continue
+            val = template_vals[key]
+            if type(val) not in self._template_conversions:
+                # TODO: Get better error handeling
+                raise ValueError("NOT ALLOWABLE TYPE")
+            template.append(self._template_conversions[type(val)](val))
+            if isinstance(val, dtype) and val.include_files is not None:
+                extra_includes += val.include_files
+
+        return f"{self.kernel_name}<{', '.join(template)}>", extra_includes
+
+    def get_compiled_kernel(self, options, template_vals):
+        named_expression = None
+        if template_vals is not None and template_vals:  # Check if not None and not empty
+            named_expression, extra_includes = self._get_template(template_vals)
         num_options = len(options)
         compiled_code, mapping = self.program.compile(
-            num_options=num_options, options=options, named_expresions=named_expression
+            num_options=num_options, options=options, named_expression=named_expression
         )
         module = checkCudaErrors(cuda.cuModuleLoadData(compiled_code))
         kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.program.get_name()))
@@ -70,17 +121,17 @@ class KernelInterface(Generic[T]):
 
 
 class JITKernel(KernelInterface[T]):
+
     def __init__(
         self,
-        kernel_path,
-        kernel_name,
+        kernel_path: str,
+        kernel_name: str,
         calling_dir: str,
-        compile_options,
-        debug,
-        launch_metadata,
-        template_params,
-        headers,
-        method,
+        compile_options: Optional[List[str]] = None,
+        debug: Optional[bool] = None,
+        template_params: Optional[List[str]] = None,
+        include: Optional[List[str]] = None,
+        method: Optional[str] = "ptx",
     ) -> None:
         self.templated = template_params is not None
         self.kernel_params = KernelParams(
@@ -89,11 +140,10 @@ class JITKernel(KernelInterface[T]):
             calling_dir=calling_dir,
             is_template=self.templated,
             template_params=template_params,
-            headers=headers,
+            include=include,
             method=method,
         )
         self.debug = debug
-        self.launch_metadata = launch_metadata
 
         if not torch.cuda.is_initialized():
             torch.cuda.init()
@@ -155,8 +205,7 @@ class JITKernel(KernelInterface[T]):
     def _get_stream():
         stream = torch.cuda.current_stream()
         if stream.cuda_stream == 0:
-            new_stream = torch.cuda.Stream()
-            torch.cuda.set_stream(new_stream)
+            torch.cuda.set_stream(torch.cuda.Stream())
         stream = torch.cuda.current_stream()
         return stream
 
@@ -209,9 +258,11 @@ class JITKernel(KernelInterface[T]):
 
         return options
 
+    # def __call__(self, *args, **kwargs):
+    #     # TODO: Create better error
+    #     raise RuntimeError("Not able to call kernel object")
+
     def run(self, *args, grid=None, thread_grid=None, warmup=None, **kwargs):
-        if len(kwargs):
-            raise NotImplementedError("Passing template values as kwargs is not supported currently")
         # TODO: Make better errors
         if grid is None:
             raise ValueError("GRID IS NONE")
@@ -219,9 +270,7 @@ class JITKernel(KernelInterface[T]):
             raise ValueError("THREAD GRID IS NONE")
 
         # TODO add caching
-        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, named_expression=None)
-
-        stream = self._get_stream()
+        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
 
         arg_values, arg_types = self._clean_values(args)
 
@@ -234,13 +283,17 @@ class JITKernel(KernelInterface[T]):
                 thread_grid[0],
                 thread_grid[1],
                 thread_grid[2],
-                0,
-                stream.cuda_stream,
+                kwargs.get("smem", 0),
+                kwargs.get("stream", self._get_stream().cuda_stream),
                 (arg_values, arg_types),
                 0,
             )
         )
         return
+
+
+class KernelFunction(Protocol[R]):
+    def __call__(self, kernel: JITKernel, *args: Any, **kwargs: Any) -> R: ...
 
 
 # ---------------------------
@@ -249,56 +302,71 @@ class JITKernel(KernelInterface[T]):
 
 
 @overload
-def jit(fn: T) -> JITKernel[T]: ...
+def jit(fn: Callable[..., R]) -> KernelFunction[R]: ...
 
 
 @overload
 def jit(
     *,
-    kernel_path: Optional[str] = None,
-    kernel_name: Optional[str] = None,
+    kernel_path: str,
+    kernel_name: str,
     compile_options: Optional[List[str]] = None,
     method: Optional[str] = None,
-    launch_metadata: Optional[Callable] = None,
     template_params: Optional[List[str]] = None,
-    headers: Optional[List[str]] = None,
+    include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
-) -> Callable[[T], JITKernel[T]]: ...
+) -> Callable[[Callable[..., R]], KernelFunction[R]]: ...
 
 
 def jit(
     fn: Optional[T] = None,
-    *,
     kernel_path: Optional[str] = None,
     kernel_name: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
     method: Optional[str] = None,
-    launch_metadata: Optional[Callable] = None,
     template_params: Optional[List[str]] = None,
-    headers: Optional[List[str]] = None,
+    include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
-) -> Union[JITKernel[T], Callable[[T], JITKernel[T]]]:
-    def decorator(func: T) -> JITKernel[T]:
+) -> Union[KernelFunction[R], Callable[[Callable[..., R]], KernelFunction[R]]]:
+    """
+    JIT decorator for defining CUDA kernels with optional template and compile parameters.
+    Requires explicit parameters.
+
+    Args:
+        kernel_path (str): Path to the CUDA kernel file.
+        kernel_name (str): Name of the kernel function in the file.
+        compile_options (List[str], optional): Additional options for NVRTC compiler.
+        method (str, optional): Compilation method, default is "ptx".
+        template_params (List[str], optional): Template parameters for the kernel.
+        include (List[str], optional): Additional include paths for the kernel.
+        debug (bool, optional): Enables debug mode for the kernel.
+
+    Returns:
+        Callable[[Callable[..., R]], KernelFunction[R]]: The decorated function.
+    """
+
+    def decorator(func: Callable[..., R]) -> KernelFunction[R]:
+        if kernel_path is None or kernel_name is None:
+            # TODO: Create better errors
+            raise ValueError("kernel_path or kernel_name are not set.")
+
         calling_script = os.path.abspath(inspect.stack()[1].filename)
         calling_dir = os.path.dirname(calling_script)
 
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            nonlocal calling_dir
-            kernel = JITKernel(
-                kernel_path=kernel_path,
-                kernel_name=kernel_name,
-                calling_dir=calling_dir,
-                compile_options=compile_options,
-                debug=debug,
-                launch_metadata=launch_metadata,
-                template_params=template_params,
-                headers=headers,
-                method=method,
-            )
+        kernel = JITKernel(
+            kernel_path=kernel_path,
+            kernel_name=kernel_name,
+            calling_dir=calling_dir,
+            compile_options=compile_options,
+            debug=debug,
+            template_params=template_params,
+            include=include,
+            method=method,
+        )
+
+        def wrapper(*args: Any, **kwargs: Any) -> R:
             return func(kernel, *args, **kwargs)
 
         return wrapper
 
-    if fn is not None:
-        return decorator(fn)
     return decorator
