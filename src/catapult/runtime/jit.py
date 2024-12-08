@@ -3,6 +3,7 @@ import sys
 import functools
 import inspect
 import ctypes
+from collections import defaultdict
 import torch
 from cuda import cuda
 from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any, Protocol
@@ -165,6 +166,8 @@ class JITKernel(KernelInterface[T]):
         # Compile options need to be set after self.major and self.minor
         self.compile_options = self._get_options(compile_options)
 
+        self.cache = defaultdict(dict)
+
     @staticmethod
     def _clean_values(args):
         """
@@ -259,6 +262,13 @@ class JITKernel(KernelInterface[T]):
 
         return options
 
+    def _get_signature(self, *args, **kwargs):
+        constexpr_vals = []
+        for key, val in kwargs.items():
+            if key in self.kernel_params.template_params:
+                constexpr_vals.append(val)
+        return constexpr_vals
+
     # def __call__(self, *args, **kwargs):
     #     # TODO: Create better error
     #     raise RuntimeError("Not able to call kernel object")
@@ -270,8 +280,15 @@ class JITKernel(KernelInterface[T]):
         if thread_grid is None:
             raise ValueError("THREAD GRID IS NONE")
 
-        # TODO add caching
-        kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
+        # TODO: Abstract this to a backend driver
+        device = torch.cuda.current_device()
+
+        constexpr_vals = self._get_signature(*args, **kwargs)
+        key = str(constexpr_vals)
+        kernel = self.cache[device].get(key, None)
+        if kernel is None:
+            kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
+            self.cache[device][key] = kernel
 
         arg_values, arg_types = self._clean_values(args)
 
@@ -290,7 +307,8 @@ class JITKernel(KernelInterface[T]):
                 0,
             )
         )
-        return
+
+        return None
 
 
 class KernelFunction(Protocol[R]):
