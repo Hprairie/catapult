@@ -1,0 +1,67 @@
+from abc import ABCMeta, abstractmethod
+from typing import List
+
+
+class Framework(metaclass=ABCMeta):
+    """Base abstract class for handling different computation frameworks.
+    
+    This class provides an interface for framework-specific operations like
+    data pointer parsing and device management. Implementations should handle
+    framework-specific details (e.g., PyTorch, NumPy) while providing a 
+    consistent interface for kernel compilation and execution.
+    """
+
+    @classmethod
+    @abstractmethod
+    def is_active() -> bool:
+        """Check if the framework is available in the current environment.
+        
+        Returns:
+            bool: True if the framework is available, False otherwise.
+        """
+        pass
+    
+    @abstractmethod
+    def get_target() -> str:
+        """Get the target platform/backend for the framework.
+        
+        Returns:
+            str: Identifier for the target platform (e.g., 'cuda', 'cpu').
+        """
+        pass
+
+
+class GPUFramework(Framework):
+    """Abstract base class for GPU-specific framework implementations.
+    
+    Extends the Framework class with GPU-specific operations like device
+    management and stream handling. Used for frameworks that support GPU
+    computation (e.g., PyTorch CUDA, CuPy).
+    """
+
+    @abstractmethod
+    def get_device(self) -> str:
+        """Get the current GPU device identifier.
+        
+        Returns:
+            str: Current device identifier.
+        """
+        pass
+
+    @abstractmethod
+    def set_device(self, device: str) -> None:
+        """Set the current GPU device.
+        
+        Args:
+            device (str): Device identifier to set as current.
+        """
+        pass
+
+    @abstractmethod
+    def get_stream(self) -> str:
+        """Get the current CUDA stream.
+        
+        Returns:
+            str: Current CUDA stream identifier.
+        """
+        pass
