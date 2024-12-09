@@ -1,4 +1,4 @@
-from ...framework import Framework, GPUFramework
+from catapult.driver import Framework, GPUFramework
 
 
 class TorchBaseFramework(Framework):

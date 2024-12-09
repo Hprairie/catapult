@@ -1,7 +1,7 @@
 import os
 import importlib
 from dataclasses import dataclass
-from .framework import Framework
+from .framework import Framework, GPUFramework
 from .backends import Backend
 
 
@@ -29,7 +29,8 @@ def _discover_backends():
 backends = _discover_backends()
 
 __all__ = [
-    "BackendDriver",
-    "BackendCompiler",
+    "Framework",
+    "GPUFramework",
+    "Backend"
     "backends",
 ]

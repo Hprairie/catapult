@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
-from ..compiler import Compiler
+
+# TODO: FIX THIS IMPORT WHEN __init__.py IS CREATED (why do we need to access base an not just compiler?)
+from catapult.compiler.base import Compiler
 
 
 class Backend(metaclass=ABCMeta):
@@ -18,18 +20,16 @@ class Backend(metaclass=ABCMeta):
     @abstractmethod
     def __init__(self) -> None:
         """Initialize the backend compiler."""
-        ...
 
     @abstractmethod
     def get_compiler() -> Compiler:
         """Create and return a compiler object for this backend.
 
         Returns:
-            Compiler: A compiler instance specific to this backend 
+            Compiler: A compiler instance specific to this backend
                      (e.g., _NVRTCProgram for CUDA)
         """
-        pass
-    
+
     @abstractmethod
     def launch_backend() -> None:
         """Launch the backend."""
@@ -42,4 +42,3 @@ class Backend(metaclass=ABCMeta):
         Returns:
             bool: True if the backend is available, False otherwise
         """
-        pass
