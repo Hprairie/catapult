@@ -3,6 +3,7 @@ import importlib
 from dataclasses import dataclass
 from .framework import Framework, GPUFramework
 from .backends import Backend
+from .driver import Driver
 
 
 def _load_module(name, path):
@@ -31,6 +32,7 @@ backends = _discover_backends()
 __all__ = [
     "Framework",
     "GPUFramework",
-    "Backend"
+    "Backend",
+    "Driver",
     "backends",
 ]

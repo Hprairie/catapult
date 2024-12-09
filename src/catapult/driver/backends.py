@@ -42,3 +42,11 @@ class Backend(metaclass=ABCMeta):
         Returns:
             bool: True if the backend is available, False otherwise
         """
+    
+    @abstractmethod
+    def get_name() -> str:
+        """Get the name of the backend.
+
+        Returns:
+            str: Name of the backend (e.g., 'cuda', 'opencl')
+        """

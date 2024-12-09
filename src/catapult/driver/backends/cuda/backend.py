@@ -8,14 +8,10 @@ from catapult.compiler import _NVRTCProgram
 from catapult.compiler.cuda.errors import checkCudaErrors
 
 
-from catapult.driver import GPUFramework
-
 
 class CUDABackend(Backend):
-    def __init__(self, framework: GPUFramework) -> None:
-        if not isinstance(framework, GPUFramework):
-            raise TypeError(f"Expected a GPUFramework when creating a CUDA Backend, but got {type(framework)}")
-        self.framework = framework
+    def __init__(self) -> None:
+        pass
 
     def get_compiler(
         source: str | bytes,

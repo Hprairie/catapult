@@ -22,13 +22,29 @@ class Framework(metaclass=ABCMeta):
         pass
     
     @abstractmethod
-    def get_target() -> str:
+    def get_available_targets() -> str:
         """Get the target platform/backend for the framework.
         
         Returns:
-            str: Identifier for the target platform (e.g., 'cuda', 'cpu').
+            str: Identifier for the target platform (e.g., 'cpu').
         """
         pass
+
+    @abstractmethod
+    def set_target() -> None:
+        """Set the target platform/backend for the framework.
+        
+        Args:
+            target (str): Identifier for the target platform (e.g., 'cpu').
+        """
+    
+    @abstractmethod
+    def get_name() -> str:
+        """Get the name of the framework.
+        
+        Returns:
+            str: Name of the framework (e.g., 'torch', 'numpy').
+        """
 
 
 class GPUFramework(Framework):
