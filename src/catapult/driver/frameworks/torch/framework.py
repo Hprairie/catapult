@@ -21,6 +21,10 @@ class TorchGPUFramework(GPUFramework):
         if self.torch is not None:
             self.get_device = self.torch.current_device
             self.set_device = self.torch.cuda.set_device
+        
+        # TODO: Check if there is a better place to initialize CUDA
+        if not torch.cuda.is_initialized():
+            torch.cuda.init()
 
     def get_stream(self, idx) -> str:
         return self.torch.cuda.current_stream(idx).cuda_stream

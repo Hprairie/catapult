@@ -172,9 +172,6 @@ class _NVRTCProgram(Compiler):
 
         return f"{self.kernel_name}<{', '.join(template)}>", extra_includes
 
-    
-    def add_template(self, template_vals) -> None:
-        pass
 
     def get_kernel(self):
         if self.compiled_code is None or self.mapping is None:

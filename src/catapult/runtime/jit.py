@@ -1,116 +1,16 @@
 import os
-import sys
 import functools
 import inspect
 import ctypes
 from collections import defaultdict
-import torch
-from cuda import cuda
 from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any, Protocol
 
-from catapult.compiler.compiler import create_program, checkCudaErrors
-
-from . import types
-from .types import dtype
+from .build import get_driver
 
 
 T = TypeVar("T")
 R = TypeVar("R")
 
-
-class KernelParams:
-    """Represents a Kernel Params of a @jit'ed function"""
-
-    _template_conversions = {
-        types.int1: lambda arg: str(arg),
-        types.int8: lambda arg: str(arg),
-        types.int16: lambda arg: str(arg),
-        types.int32: lambda arg: str(arg),
-        types.int64: lambda arg: str(arg),
-        types.float16: lambda arg: str(arg),
-        types.float32: lambda arg: str(arg),
-        types.float64: lambda arg: str(arg),
-        types.bfloat16: lambda arg: str(arg),
-        types.uint8: lambda arg: str(arg),
-        types.uint16: lambda arg: str(arg),
-        types.uint32: lambda arg: str(arg),
-        types.uint64: lambda arg: str(arg),
-        types.void: lambda arg: str(arg),
-        int: lambda arg: str(arg),
-        float: lambda arg: str(arg),
-        str: lambda arg: str(arg),
-        bool: lambda arg: str(arg).lower(),
-    }
-
-    _special_kernel_kwargs = ["stream", "smem"]
-
-    def __init__(
-        self,
-        kernel_path: str,
-        kernel_name: str,
-        calling_dir: str,
-        is_template: bool,
-        template_params: Optional[List[str]],
-        include: Optional[List[str]],
-        method: Optional[str],
-    ) -> None:
-        self.kernel_path = kernel_path
-        self.kernel_name = kernel_name
-        self.callilng_dir = calling_dir
-        self.is_template = is_template
-        self.template_params = template_params
-        self.headers = include
-        if not isinstance(method, str):
-            self.method = "ptx"
-        else:
-            self.method = method
-
-        self.program = create_program(
-            source=kernel_path,
-            name=kernel_name,
-            calling_dir=calling_dir,
-            num_headers=0,
-            headers=None,
-            include_names=None,
-            method=self.method,
-        )
-
-    def __del__(self):
-        del self.program
-        return
-
-    def _get_template(self, template_vals):
-        if self.template_params is None:
-            # TODO: Better error messaging
-            raise ValueError(
-                "No `template_params` were passed to catapult.jit, however **kwargs where passed to kernel."
-            )
-        template = []
-        extra_includes = []
-        for key in self.template_params:
-            if key in self._special_kernel_kwargs:
-                continue
-            val = template_vals[key]
-            if type(val) not in self._template_conversions:
-                # TODO: Get better error handeling
-                raise ValueError("NOT ALLOWABLE TYPE")
-            template.append(self._template_conversions[type(val)](val))
-            if isinstance(val, dtype) and val.include_files is not None:
-                extra_includes += val.include_files
-
-        return f"{self.kernel_name}<{', '.join(template)}>", extra_includes
-
-    def get_compiled_kernel(self, options, template_vals):
-        named_expression = None
-        if template_vals is not None and template_vals:  # Check if not None and not empty
-            named_expression, extra_includes = self._get_template(template_vals)
-        num_options = len(options)
-        compiled_code, mapping = self.program.compile(
-            num_options=num_options, options=options, named_expression=named_expression
-        )
-        module = checkCudaErrors(cuda.cuModuleLoadData(compiled_code))
-        kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.program.get_name()))
-        return kernel, mapping
 
 
 class KernelInterface(Generic[T]):
@@ -136,37 +36,10 @@ class JITKernel(KernelInterface[T]):
         method: Optional[str] = "ptx",
     ) -> None:
         self.templated = template_params is not None
-        self.kernel_params = KernelParams(
-            kernel_path=kernel_path,
-            kernel_name=kernel_name,
-            calling_dir=calling_dir,
-            is_template=self.templated,
-            template_params=template_params,
-            include=include,
-            method=method,
-        )
-        self.debug = debug
+        self.driver = get_driver()
 
-        if not torch.cuda.is_initialized():
-            torch.cuda.init()
-
-        # Get compute capability and architecture argument
-        self.cuDevice = checkCudaErrors(cuda.cuDeviceGet(torch.cuda.current_device()))
-        self.major = checkCudaErrors(
-            cuda.cuDeviceGetAttribute(
-                cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, self.cuDevice
-            )
-        )
-
-        self.minor = checkCudaErrors(
-            cuda.cuDeviceGetAttribute(
-                cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, self.cuDevice
-            )
-        )
-
-        # Compile options need to be set after self.major and self.minor
-        self.compile_options = self._get_options(compile_options)
-
+        # TODO: Initialize the compiler object
+        self.compiler = self.driver.backend.get_compiler()
         self.cache = defaultdict(dict)
 
     @staticmethod
@@ -206,63 +79,6 @@ class JITKernel(KernelInterface[T]):
 
         return arg_values, arg_types
 
-    @staticmethod
-    def _get_stream():
-        stream = torch.cuda.current_stream()
-        if stream.cuda_stream == 0:
-            torch.cuda.set_stream(torch.cuda.Stream())
-        stream = torch.cuda.current_stream()
-        return stream
-
-    def __del__(self):
-        if self.kernel_params is not None:
-            del self.kernel_params
-        return
-
-    def _get_options(self, compile_options):
-        """
-        Get compilation options for the CUDA kernel, handling GPU architecture specifications.
-
-        Returns:
-            List[bytes]: List of compilation options as bytes objects
-        """
-        # Start with default options if provided during initialization
-        options = list(compile_options) if compile_options else []
-
-        # Convert all string options to bytes if they aren't already
-        options = [opt if isinstance(opt, bytes) else opt.encode("ascii") for opt in options]
-
-        # Generate architecture argument based on compute capability
-        arch_spec = f"sm_{self.major}{self.minor}"
-
-        # Check if there's an existing architecture specification
-        has_arch_spec = False
-        for i, opt in enumerate(options):
-            opt_str = opt.decode("ascii")
-            if opt_str.startswith("--gpu-architecture="):
-                # Update existing architecture specification
-                current_arch = opt_str.split("=")[1]
-                # Combine architectures if different
-                if arch_spec not in current_arch:
-                    new_archs = f"{current_arch},{arch_spec}"
-                    options[i] = f"--gpu-architecture={new_archs}".encode("ascii")
-                has_arch_spec = True
-                break
-
-        # Add new architecture specification if none exists
-        if not has_arch_spec:
-            options.append(f"--gpu-architecture={arch_spec}".encode("ascii"))
-
-        # Add default options if their keys aren't already present
-        default_opts = [b"--fmad=false"]
-        for default_opt in default_opts:
-            default_key = default_opt.split(b"=")[0]
-            # Check if any existing option starts with this key
-            if not any(opt.startswith(default_key) for opt in options):
-                options.append(default_opt)
-
-        return options
-
     def _get_signature(self, *args, **kwargs):
         constexpr_vals = []
         for key, val in kwargs.items():
@@ -281,36 +97,22 @@ class JITKernel(KernelInterface[T]):
         if thread_grid is None:
             raise ValueError("THREAD GRID IS NONE")
 
-        # TODO: Abstract this to a backend driver
-        device = torch.cuda.current_device()
+        device = self.driver.framework.get_device()
 
         constexpr_vals = self._get_signature(*args, **kwargs)
         key = str(constexpr_vals)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
-            kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
+            self.compiler.compile(options=self.compile_options, template_vals=kwargs)
             self.cache[device][key] = kernel
 
+        # TODO: Abstract this to the driver's framework
         arg_values, arg_types = self._clean_values(args)
 
-        checkCudaErrors(
-            cuda.cuLaunchKernel(
-                kernel,
-                grid[0],
-                grid[1],
-                grid[2],
-                thread_grid[0],
-                thread_grid[1],
-                thread_grid[2],
-                kwargs.get("smem", 0),
-                kwargs.get("stream", self._get_stream().cuda_stream),
-                (arg_values, arg_types),
-                0,
-            )
-        )
+        self.driver.backend.launch_backend(kernel, grid, thread_grid, arg_values, arg_types, **kwargs)
 
-        return None
+        return
 
 
 class KernelFunction(Protocol[R]):
@@ -390,8 +192,6 @@ def jit(
             return func(*args, **kwargs)
 
         wrapper.kernel = kernel
-
-        # wrapper._schema = torch.library.infer_schema(func)
 
         return wrapper
 
