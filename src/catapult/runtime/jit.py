@@ -157,6 +157,7 @@ class JITKernel(KernelInterface[T]):
                 cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, self.cuDevice
             )
         )
+
         self.minor = checkCudaErrors(
             cuda.cuDeviceGetAttribute(
                 cuda.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, self.cuDevice
@@ -269,9 +270,9 @@ class JITKernel(KernelInterface[T]):
                 constexpr_vals.append(val)
         return constexpr_vals
 
-    # def __call__(self, *args, **kwargs):
-    #     # TODO: Create better error
-    #     raise RuntimeError("Not able to call kernel object")
+    def __call__(self, *args, **kwargs):
+        # TODO: Create better error
+        raise RuntimeError("Not able to call kernel object")
 
     def run(self, *args, grid=None, thread_grid=None, warmup=None, **kwargs):
         # TODO: Make better errors
@@ -286,6 +287,7 @@ class JITKernel(KernelInterface[T]):
         constexpr_vals = self._get_signature(*args, **kwargs)
         key = str(constexpr_vals)
         kernel = self.cache[device].get(key, None)
+
         if kernel is None:
             kernel, mapping = self.kernel_params.get_compiled_kernel(options=self.compile_options, template_vals=kwargs)
             self.cache[device][key] = kernel
