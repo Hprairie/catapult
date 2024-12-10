@@ -45,6 +45,12 @@ class Framework(metaclass=ABCMeta):
         Returns:
             str: Name of the framework (e.g., 'torch', 'numpy').
         """
+    
+    @staticmethod
+    @abstractmethod
+    def clean_values() -> None:
+        """Clean the Framework specific values in the input to easily parse and pass to the backend."""
+        pass
 
 
 class GPUFramework(Framework):

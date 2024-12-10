@@ -3,7 +3,7 @@ from typing import Optional, Tuple, List
 
 from cuda import cuda
 
-from catapult.backends import Backend
+from catapult.driver import Backend
 from catapult.compiler import _NVRTCProgram
 from catapult.compiler.cuda.errors import checkCudaErrors
 
