@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import importlib
 from .framework import Framework, GPUFramework
@@ -6,9 +7,17 @@ from .driver import Driver
 
 
 def _load_module(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    """Load a module from file path, compatible with different Python versions."""
+    try:
+        # Try Python 3.5+ approach first
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except (ImportError, AttributeError):
+        # Fallback for older Python versions
+        import imp
+        module = imp.load_source(name, path)
     return module
 
 

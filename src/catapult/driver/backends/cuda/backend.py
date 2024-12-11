@@ -59,7 +59,6 @@ class CUDABackend(Backend):
         raise NotImplementedError
     
     def launch_backend(self, framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs) -> None:
-        # TODO: This needs to be cleaned up
         checkCudaErrors(
             cuda.cuLaunchKernel(
                 kernel,
