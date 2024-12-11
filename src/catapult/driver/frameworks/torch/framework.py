@@ -14,30 +14,41 @@ class TorchBaseFramework(Framework):
 
 class TorchGPUFramework(GPUFramework):
 
-    _driver_type = "torch"
-
     def __init__(self) -> None:
 
-        if torch is not None:
-            self.get_device = self.torch.current_device
-            self.set_device = self.torch.cuda.set_device
-        
         # TODO: Check if there is a better place to initialize CUDA
         if not torch.cuda.is_initialized():
             torch.cuda.init()
+        
+        # Initialize target to None
+        # Requires that we register a target backend before using the framework
+        self.target = None
 
     def get_stream(self, idx) -> str:
         return torch.cuda.current_stream(idx).cuda_stream
+    
+    def get_device(self, device: int | str):
+        return torch.cuda.current_device(device)
+    
+    def set_device(self, device: int | str):
+        return torch.cuda.set_device(device)
 
+    @staticmethod
     def is_active() -> bool:
         return torch is not None
 
-    def get_target(self) -> str:
-        return self._driver_type
-    
-
     @staticmethod
-    def _clean_values(args):
+    def get_name() -> str:
+        return "torch"
+    
+    def get_available_targets():
+        return ["cuda"]
+    
+    def set_target(self, target: str) -> None:
+        self.target = target
+    
+    @staticmethod
+    def clean_values(args):
         """
         Prepares arguments for CUDA kernel launch with proper C types using a dictionary-based approach.
 

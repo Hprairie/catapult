@@ -34,7 +34,7 @@ class Backend(metaclass=ABCMeta):
     def launch_backend() -> None:
         """Launch the backend."""
 
-    @classmethod
+    @staticmethod
     @abstractmethod
     def is_available() -> bool:
         """Check if this backend is available on the current system.
@@ -43,6 +43,7 @@ class Backend(metaclass=ABCMeta):
             bool: True if the backend is available, False otherwise
         """
     
+    @staticmethod
     @abstractmethod
     def get_name() -> str:
         """Get the name of the backend.

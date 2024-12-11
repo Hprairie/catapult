@@ -12,6 +12,10 @@ from catapult.compiler.cuda.errors import checkCudaErrors
 class CUDABackend(Backend):
     def __init__(self) -> None:
         pass
+    
+    @staticmethod
+    def get_name() -> str:
+        return "cuda"
 
     def get_compiler(
         source: str | bytes,
@@ -38,7 +42,7 @@ class CUDABackend(Backend):
             method=method,
         )
 
-    @classmethod
+    @staticmethod
     def is_available() -> bool:
         raise NotImplementedError
     

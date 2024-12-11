@@ -38,6 +38,7 @@ class Framework(metaclass=ABCMeta):
             target (str): Identifier for the target platform (e.g., 'cpu').
         """
     
+    @staticmethod
     @abstractmethod
     def get_name() -> str:
         """Get the name of the framework.

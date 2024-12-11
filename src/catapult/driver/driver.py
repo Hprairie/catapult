@@ -2,7 +2,7 @@ from .backends import Backend
 from .framework import Framework, GPUFramework
 
 class Driver:
-    def ___init__(self, framework: Framework, backend: Backend) -> None:
+    def __init__(self, framework: Framework | GPUFramework, backend: Backend) -> None:
         if not isinstance(framework, Framework):
             raise TypeError(f"Expected a Framework when creating a Driver, but got {type(framework)}")
         if not isinstance(backend, Backend):
