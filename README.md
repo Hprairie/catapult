@@ -34,10 +34,10 @@ import catapult
 
 
 @catapult.jit(kernel_path="example_kernel.cu", kernel_name="saxpy")
-def testing(kernel, a, x, y, N):
+def testing(a, x, y, N):
     output = torch.zeros_like(x)
 
-    kernel[(32, 1, 1), (128, 1, 1)](a, x, y, output, N)
+    testing.kernel[(32, 1, 1), (128, 1, 1)](a, x, y, output, N)
     return output
 ```
 
