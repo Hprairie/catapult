@@ -7,7 +7,7 @@ class Driver:
             raise TypeError(f"Expected a Framework when creating a Driver, but got {type(framework)}")
         if not isinstance(backend, Backend):
             raise TypeError(f"Expected a Backend when creating a Driver, but got {type(backend)}")
-        if framework.get_available_targets() != backend.get_name():
+        if backend.get_name() not in framework.get_available_targets():
             raise TypeError(f"Expected a Backend with the same target as the Framework, but got {backend.get_name()} and {framework.get_available_targets()}")
         self.framework = framework
         self.backend = backend

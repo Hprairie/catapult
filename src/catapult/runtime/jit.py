@@ -32,13 +32,14 @@ class JITKernel(KernelInterface[T]):
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
         include: Optional[List[str]] = None,
-        method: Optional[str] = "ptx",
+        method: Optional[str] = None,
     ) -> None:
         self.templated = template_params is not None
         self.driver = get_driver()
 
-        # TODO: Initialize the compiler object
-        self.compiler = self.driver.backend.get_compiler()
+        # TODO: Add debugging option
+
+        self.compiler = self.driver.backend.get_compiler(source=kernel_path, name=kernel_name, calling_dir=calling_dir, device=self.driver.framework.get_device(), compile_options=compile_options, include_names=include, method=method, template_params=template_params)
         self.cache = defaultdict(dict)
 
 
@@ -67,12 +68,12 @@ class JITKernel(KernelInterface[T]):
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
-            self.compiler.compile(options=self.compile_options, template_vals=kwargs)
+            self.compiler.compile(template_vals=kwargs)
             self.cache[device][key] = kernel
 
         arg_values, arg_types = self.driver.framework.clean_values(args)
 
-        self.driver.backend.launch_backend(kernel, grid, thread_grid, arg_values, arg_types, **kwargs)
+        self.driver.backend.launch_backend(self.driver.framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs)
 
         return
 

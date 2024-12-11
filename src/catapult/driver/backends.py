@@ -21,6 +21,7 @@ class Backend(metaclass=ABCMeta):
     def __init__(self) -> None:
         """Initialize the backend compiler."""
 
+    @staticmethod
     @abstractmethod
     def get_compiler() -> Compiler:
         """Create and return a compiler object for this backend.

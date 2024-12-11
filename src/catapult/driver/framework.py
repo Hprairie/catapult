@@ -21,6 +21,7 @@ class Framework(metaclass=ABCMeta):
         """
         pass
     
+    @staticmethod
     @abstractmethod
     def get_available_targets() -> str:
         """Get the target platform/backend for the framework.
@@ -62,6 +63,7 @@ class GPUFramework(Framework):
     computation (e.g., PyTorch CUDA, CuPy).
     """
 
+    @staticmethod
     @abstractmethod
     def get_device(self) -> str:
         """Get the current GPU device identifier.
@@ -71,6 +73,7 @@ class GPUFramework(Framework):
         """
         pass
 
+    @staticmethod
     @abstractmethod
     def set_device(self, device: str) -> None:
         """Set the current GPU device.
@@ -80,8 +83,9 @@ class GPUFramework(Framework):
         """
         pass
 
+    @staticmethod
     @abstractmethod
-    def get_stream(self) -> str:
+    def get_stream() -> str:
         """Get the current CUDA stream.
         
         Returns:

@@ -24,13 +24,20 @@ class TorchGPUFramework(GPUFramework):
         # Requires that we register a target backend before using the framework
         self.target = None
 
-    def get_stream(self, idx) -> str:
-        return torch.cuda.current_stream(idx).cuda_stream
+    @staticmethod
+    def get_stream() -> str:
+        stream = torch.cuda.current_stream()
+        if stream.cuda_stream == 0:
+            torch.cuda.set_stream(torch.cuda.Stream())
+        stream = torch.cuda.current_stream()
+        return stream.cuda_stream
     
-    def get_device(self, device: int | str):
-        return torch.cuda.current_device(device)
+    @staticmethod
+    def get_device():
+        return torch.cuda.current_device()
     
-    def set_device(self, device: int | str):
+    @staticmethod
+    def set_device(device: int | str):
         return torch.cuda.set_device(device)
 
     @staticmethod
@@ -41,6 +48,7 @@ class TorchGPUFramework(GPUFramework):
     def get_name() -> str:
         return "torch"
     
+    @staticmethod
     def get_available_targets():
         return ["cuda"]
     

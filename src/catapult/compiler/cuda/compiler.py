@@ -19,6 +19,7 @@ class _NVRTCProgram(Compiler):
         num_headers: int = 0,
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
+        template_params: Optional[List[str]] = None,
         method: str = "ptx",
     ):
         self.source_bytes = source
@@ -46,10 +47,12 @@ class _NVRTCProgram(Compiler):
             nvrtc.nvrtcCreateProgram(self.source_bytes, self.name_bytes, num_headers, headers, include_names)
         )
         self.method = method
+        print(self.method)
         self.device = device
         self.compiled_program = None
         self.mapping = None
         self.named_expression = {}
+        self.template_params = template_params
 
         # Get compute capability and architecture argument
         self.cuDevice = checkCudaErrors(cuda.cuDeviceGet(device))
@@ -78,14 +81,14 @@ class _NVRTCProgram(Compiler):
     def get_name(self):
         return self.name_bytes
 
-    def compile(self, num_options, options, template_vals):
+    def compile(self, template_vals):
         # TODO: Setup error handling
         named_expression = None
-        if template_vals is not None:
+        if len(template_vals):
             named_expression, extra_includes = self._create_template_string(template_vals)
             named_expression = bytes(named_expression, "utf-8")
             checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression))
-        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(options), options))
+        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options))
         mapping = None
         if named_expression:
             self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression))
