@@ -47,7 +47,6 @@ class _NVRTCProgram(Compiler):
             nvrtc.nvrtcCreateProgram(self.source_bytes, self.name_bytes, num_headers, headers, include_names)
         )
         self.method = method
-        print(self.method)
         self.device = device
         self.compiled_program = None
         self.mapping = None
@@ -173,12 +172,12 @@ class _NVRTCProgram(Compiler):
             if isinstance(val, dtype) and val.include_files is not None:
                 extra_includes += val.include_files
 
-        return f"{self.kernel_name}<{', '.join(template)}>", extra_includes
+        return f"{self.name}<{', '.join(template)}>", extra_includes
 
 
     def get_kernel(self):
-        if self.compiled_code is None or self.mapping is None:
+        if self.compiled_program is None:
             raise ValueError("Attemtping to get kernel before compiling the program?")
-        module = checkCudaErrors(cuda.cuModuleLoadDataEx(self.compiled_code))
+        module = checkCudaErrors(cuda.cuModuleLoadData(self.compiled_program))
         kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.name_bytes))
         return kernel, self.mapping

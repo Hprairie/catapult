@@ -69,8 +69,8 @@ class CUDABackend(Backend):
                 thread_grid[0],
                 thread_grid[1],
                 thread_grid[2],
-                kwargs.get("smem", 0),
-                kwargs.get("stream", framework.get_stream()),
+                int(kwargs.get("smem", 0)),
+                int(kwargs.get("stream", framework.get_stream())),
                 (arg_values, arg_types),
                 0,
             )

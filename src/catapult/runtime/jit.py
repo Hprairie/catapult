@@ -46,7 +46,7 @@ class JITKernel(KernelInterface[T]):
     def _get_signature(self, *args, **kwargs):
         constexpr_vals = []
         for key, val in kwargs.items():
-            if key in self.kernel_params.template_params:
+            if key in self.compiler.template_params:
                 constexpr_vals.append(val)
         return constexpr_vals
 
@@ -69,7 +69,9 @@ class JITKernel(KernelInterface[T]):
 
         if kernel is None:
             self.compiler.compile(template_vals=kwargs)
+            kernel, _ = self.compiler.get_kernel()
             self.cache[device][key] = kernel
+
 
         arg_values, arg_types = self.driver.framework.clean_values(args)
 
