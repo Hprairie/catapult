@@ -15,11 +15,14 @@ from .types import (
     uint64,
     void,
 )
+from .autotuner import autotune, Config
 
 
 __all__ = [
     "JITKernel",
     "KernelInterface",
+    "autotune",
+    "Config",
     "int1",
     "int8",
     "int16",

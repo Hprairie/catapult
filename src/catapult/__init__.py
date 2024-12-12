@@ -18,11 +18,14 @@ from .runtime import (
 )
 from .utils import custom_op
 from .runtime.jit import jit
+from .runtime import autotune, Config
 
 __all__ = [
     "jit",
     "JITKernel",
     "KernelInterface",
+    "autotune",
+    "Config",
     "int1",
     "int8",
     "int16",
