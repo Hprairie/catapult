@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-# TODO: FIX THIS IMPORT WHEN __init__.py IS CREATED (why do we need to access base an not just compiler?)
-from catapult.compiler.base import Compiler
+from catapult.compiler import Compiler
 
 
 class Backend(metaclass=ABCMeta):
@@ -43,7 +42,7 @@ class Backend(metaclass=ABCMeta):
         Returns:
             bool: True if the backend is available, False otherwise
         """
-    
+
     @staticmethod
     @abstractmethod
     def get_name() -> str:

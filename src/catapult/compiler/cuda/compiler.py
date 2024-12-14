@@ -1,6 +1,5 @@
-import os
 from typing import Optional, Tuple, List
-from cuda import cuda, nvrtc, cudart
+from cuda import cuda, nvrtc
 
 from .errors import CompileException, NVRTCException, checkCudaErrors
 
@@ -15,7 +14,7 @@ class _NVRTCProgram(Compiler):
         source: bytes,
         name: bytes,
         device: int,
-        compile_options: List[bytes] = None,
+        compile_options: Optional[List[bytes]] = None,
         num_headers: int = 0,
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
@@ -70,7 +69,6 @@ class _NVRTCProgram(Compiler):
         # Compile options need to be set after self.major and self.minor
         self.compile_options = self._get_options(compile_options)
 
-
     def __del__(self):
         pass
 
@@ -108,7 +106,7 @@ class _NVRTCProgram(Compiler):
                 f"Error instantiating kernel: {self.name}",
                 f"Unknown compilation method: {self.method}",
             )
-    
+
     def _get_options(self, compile_options):
         """
         Get compilation options for the CUDA kernel, handling GPU architecture specifications.
@@ -152,7 +150,7 @@ class _NVRTCProgram(Compiler):
                 options.append(default_opt)
 
         return options
-    
+
     def _create_template_string(self, template_vals):
         if self.template_params is None:
             # TODO: Better error messaging
@@ -173,7 +171,6 @@ class _NVRTCProgram(Compiler):
                 extra_includes += val.include_files
 
         return f"{self.name}<{', '.join(template)}>", extra_includes
-
 
     def get_kernel(self):
         if self.compiled_program is None:

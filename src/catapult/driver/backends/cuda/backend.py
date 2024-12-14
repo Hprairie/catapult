@@ -8,11 +8,10 @@ from catapult.compiler import _NVRTCProgram
 from catapult.compiler.cuda.errors import checkCudaErrors
 
 
-
 class CUDABackend(Backend):
     def __init__(self) -> None:
         pass
-    
+
     @staticmethod
     def get_name() -> str:
         return "cuda"
@@ -28,7 +27,7 @@ class CUDABackend(Backend):
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
-        method: str = "ptx",
+        method: Optional[str] = "ptx",
     ) -> _NVRTCProgram:
         if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
             with open(os.path.join(calling_dir, source), "r") as f:
@@ -57,7 +56,7 @@ class CUDABackend(Backend):
     @staticmethod
     def is_available() -> bool:
         raise NotImplementedError
-    
+
     def launch_backend(self, framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs) -> None:
         checkCudaErrors(
             cuda.cuLaunchKernel(
@@ -74,4 +73,3 @@ class CUDABackend(Backend):
                 0,
             )
         )
-    

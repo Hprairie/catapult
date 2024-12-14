@@ -4,18 +4,20 @@ import os
 from typing import List, Dict, Any, Callable, Optional, Union
 from dataclasses import dataclass
 import functools
-import copy
+
 
 @dataclass
 class Config:
     """Configuration container for kernel parameters"""
+
     params: Dict[str, Any]
-    
+
     def __getitem__(self, key):
         return self.params[key]
-    
+
     def items(self):
         return self.params.items()
+
 
 class Autotuner:
     def __init__(
@@ -26,7 +28,7 @@ class Autotuner:
         reset_to_zero: Optional[List[str]] = None,
         restore_value: Optional[List[str]] = None,
         warmup: int = 10,
-        rep: int = 50
+        rep: int = 50,
     ):
         # TODO: Create better error message
         if not isinstance(configs, list):
@@ -39,7 +41,6 @@ class Autotuner:
             raise TypeError("key must be a list of strings")
         if len(configs) == 0:
             raise ValueError("configs must not be empty")
-    
 
         self.configs = configs
         self.key = key
@@ -52,39 +53,39 @@ class Autotuner:
 
         if len(self.reset_to_zero):
             raise NotImplementedError
-        
+
         if len(self.restore_value):
             raise NotImplementedError
-        
+
         if len(self.prune_configs_by):
             raise NotImplementedError
-        
+
     def __call__(self, func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             cache_key = tuple(kwargs.get(k) for k in self.key)
             if cache_key in self.cache:
                 return func(*args, **{**kwargs, **self.cache[cache_key].params})
-            
-            best_time = float('inf')
+
+            best_time = float("inf")
             best_config = None
-            
+
             # Benchmark each configuration
             timing_results = []
-            print_results = os.environ.get('CATAPULT_PRINT_AUTOTUNING') == '1'
-            
+            print_results = os.environ.get("CATAPULT_PRINT_AUTOTUNING") == "1"
+
             for config in self.configs:
                 tensor_args = args
                 tensor_kwargs = kwargs
-                
+
                 # Add config parameters to kwargs
                 test_kwargs = {**tensor_kwargs, **config.params}
-                
+
                 # Warmup runs
                 for _ in range(self.warmup):
                     func(*tensor_args, **test_kwargs)
                 torch.cuda.synchronize()
-                
+
                 # Benchmark runs
                 start = time.perf_counter()
                 for _ in range(self.rep):
@@ -95,11 +96,15 @@ class Autotuner:
 
                 if print_results:
                     timing_results.append((config, avg_time))
-                
+
                 if avg_time < best_time:
                     best_time = avg_time
                     best_config = config
-            
+
+            # TODO: Get better error handeling
+            if best_config is None:
+                raise RuntimeError("best_config is NONE when it shouldn't")
+
             if print_results:
                 print(f"\nCATAPULT AUTOTUNING RESULTS FOR KERNEL: {func.__name__}")
                 print("-" * 50)
@@ -110,13 +115,13 @@ class Autotuner:
                 print(f"Best config selected: {best_config.params}")
                 print("-" * 50)
                 print("\n")
-            
+
             # Cache the best config
             self.cache[cache_key] = best_config
-            
+
             # Return result with best config
             return func(*args, **{**kwargs, **best_config.params})
-        
+
         return wrapper
 
 
@@ -124,9 +129,6 @@ class Autotuner:
 # Autotune decorator
 # ---------------------------
 
-def autotune(
-    configs: List[Config],
-    key: List[str],
-    **kwargs
-) -> Callable:
+
+def autotune(configs: List[Config], key: List[str], **kwargs) -> Callable:
     return Autotuner(configs, key, **kwargs)
