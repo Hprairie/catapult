@@ -28,6 +28,19 @@ class Autotuner:
         warmup: int = 10,
         rep: int = 50
     ):
+        # TODO: Create better error message
+        if not isinstance(configs, list):
+            raise TypeError("configs must be a list of Config objects")
+        if not isinstance(key, list):
+            raise TypeError("key must be a list of strings")
+        if not all(isinstance(c, Config) for c in configs):
+            raise TypeError("configs must be a list of Config objects")
+        if not all(isinstance(k, str) for k in key):
+            raise TypeError("key must be a list of strings")
+        if len(configs) == 0:
+            raise ValueError("configs must not be empty")
+    
+
         self.configs = configs
         self.key = key
         self.prune_configs_by = prune_configs_by or {}
@@ -52,9 +65,6 @@ class Autotuner:
             cache_key = tuple(kwargs.get(k) for k in self.key)
             if cache_key in self.cache:
                 return func(*args, **{**kwargs, **self.cache[cache_key].params})
-            
-            # Store original values for restoration
-            original_values = {k: kwargs.get(k) for k in self.restore_value}
             
             best_time = float('inf')
             best_config = None

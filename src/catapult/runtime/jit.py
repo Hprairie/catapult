@@ -1,11 +1,11 @@
 import os
 import functools
 import inspect
-import ctypes
 from collections import defaultdict
 from typing import List, TypeVar, Generic, Optional, overload, Callable, Union, Any, Protocol
 
 from .build import get_driver
+from .errors import KernelLaunchError
 
 
 T = TypeVar("T")
@@ -51,15 +51,14 @@ class JITKernel(KernelInterface[T]):
         return constexpr_vals
 
     def __call__(self, *args, **kwargs):
-        # TODO: Create better error
-        raise RuntimeError("Not able to call kernel object")
+        raise KernelLaunchError("Not able to call kernel object")
 
-    def run(self, *args, grid=None, thread_grid=None, warmup=None, **kwargs):
+    def run(self, *args, grid: List[int] = None, thread_grid: List[int] = None, warmup: List[int] = None, **kwargs):
         # TODO: Make better errors
         if grid is None:
-            raise ValueError("GRID IS NONE")
+            raise KernelLaunchError("GRID IS NONE")
         if thread_grid is None:
-            raise ValueError("THREAD GRID IS NONE")
+            raise KernelLaunchError("THREAD GRID IS NONE")
 
         device = self.driver.framework.get_device()
 
