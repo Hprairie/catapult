@@ -19,7 +19,7 @@ class Framework(metaclass=ABCMeta):
         Returns:
             bool: True if the framework is available, False otherwise.
         """
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -29,7 +29,7 @@ class Framework(metaclass=ABCMeta):
         Returns:
             str: Identifier for the target platform (e.g., 'cpu').
         """
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def set_target(self, target: str) -> None:
@@ -38,6 +38,7 @@ class Framework(metaclass=ABCMeta):
         Args:
             target (str): Identifier for the target platform (e.g., 'cpu').
         """
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -47,12 +48,13 @@ class Framework(metaclass=ABCMeta):
         Returns:
             str: Name of the framework (e.g., 'torch', 'numpy').
         """
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def clean_values(args) -> Tuple[Tuple, Tuple]:
         """Clean the Framework specific values in the input to easily parse and pass to the backend."""
-        pass
+        raise NotImplementedError
 
 
 class GPUFramework(Framework):
@@ -71,7 +73,7 @@ class GPUFramework(Framework):
         Returns:
             str: Current device identifier.
         """
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -81,7 +83,7 @@ class GPUFramework(Framework):
         Args:
             device (str): Device identifier to set as current.
         """
-        pass
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -91,4 +93,4 @@ class GPUFramework(Framework):
         Returns:
             str: Current CUDA stream identifier.
         """
-        pass
+        raise NotImplementedError

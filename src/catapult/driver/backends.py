@@ -41,10 +41,12 @@ class Backend(metaclass=ABCMeta):
             Compiler: A compiler instance specific to this backend
                      (e.g., _NVRTCProgram for CUDA)
         """
+        raise NotImplementedError
 
     @abstractmethod
     def launch_backend(self, framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs) -> None:
         """Launch the backend."""
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -54,6 +56,7 @@ class Backend(metaclass=ABCMeta):
         Returns:
             bool: True if the backend is available, False otherwise
         """
+        raise NotImplementedError
 
     @staticmethod
     @abstractmethod
@@ -63,3 +66,4 @@ class Backend(metaclass=ABCMeta):
         Returns:
             str: Name of the backend (e.g., 'cuda', 'opencl')
         """
+        raise NotImplementedError

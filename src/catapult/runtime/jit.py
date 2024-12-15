@@ -18,10 +18,40 @@ class KernelInterface(Generic[T]):
     run: T
 
     def __getitem__(self, grid) -> T:
+        if grid is None:
+            raise KernelLaunchError(
+                "Attempting to launch kernel without passing a grid configuration.\n"
+                "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
+                "         |      |_block dims   |_thread dims\n"
+                "         |_kernel object"
+            )
+        
+        if not isinstance(grid, tuple) or len(grid) != 2 or len(grid[0]) != 3 or len(grid[1]) != 3:
+            raise KernelLaunchError(
+                "Grid configuration must be a tuple of (block_dims, thread_dims).\n"
+                "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)"
+            )
+
         return lambda *args, **kwargs: self.run(*args, grid=grid[0], thread_grid=grid[1], warmup=False, **kwargs)
 
 
 class JITKernel(KernelInterface[T]):
+    """
+    Just-In-Time compilation handler for GPU kernels.
+
+    This class manages the compilation, caching, and execution of GPU kernels. It supports
+    template parameters, custom compilation options, and maintains a device-specific cache
+    of compiled kernels to avoid recompilation of previously used configurations.
+
+    The kernel must be launched using square bracket syntax with grid configuration:
+    kernel[(block_dims), (thread_dims)](*args, **kwargs)
+
+    Attributes:
+        templated (bool): Indicates if the kernel uses template parameters.
+        driver: Backend driver instance for GPU operations.
+        compiler: Compiler instance for the specific kernel.
+        cache (defaultdict): Device-specific cache of compiled kernels.
+    """
 
     def __init__(
         self,
@@ -52,6 +82,16 @@ class JITKernel(KernelInterface[T]):
         self.cache = defaultdict(dict)
 
     def _get_signature(self, *args, **kwargs):
+        """
+        Extracts template parameter values from kwargs to create a unique signature for kernel caching.
+
+        Args:
+            *args: Variable positional arguments (unused).
+            **kwargs: Keyword arguments that may contain template parameter values.
+
+        Returns:
+            list: List of template parameter values used for cache key generation.
+        """
         constexpr_vals = []
         for key, val in kwargs.items():
             if key in self.compiler.template_params:
@@ -59,7 +99,12 @@ class JITKernel(KernelInterface[T]):
         return constexpr_vals
 
     def __call__(self, *args, **kwargs):
-        raise KernelLaunchError("Not able to call kernel object")
+        raise KernelLaunchError(
+            "Kernel must be launched with grid configuration using square bracket syntax.\n"
+            "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
+            "         |      |_block dims   |_thread dims\n"
+            "         |_kernel object"
+        )
 
     def run(
         self,
@@ -69,11 +114,23 @@ class JITKernel(KernelInterface[T]):
         warmup: Optional[List[int]] = None,
         **kwargs,
     ):
-        if grid is None:
-            raise KernelLaunchError("GRID IS NONE")
-        if thread_grid is None:
-            raise KernelLaunchError("THREAD GRID IS NONE")
+        """
+        Executes the GPU kernel with the specified grid configuration and arguments.
 
+        This method handles kernel compilation (if needed), caching, and launching.
+        It maintains a cache of compiled kernels based on template parameters to avoid
+        recompilation of previously used kernel configurations.
+
+        Args:
+            *args: Positional arguments to pass to the kernel.
+            grid (List[int]): Block dimensions for the CUDA grid (x, y, z).
+            thread_grid (List[int]): Thread dimensions for each block (x, y, z).
+            warmup (Optional[List[int]], optional): Number of warmup iterations.
+            **kwargs: Keyword arguments, including template parameters.
+
+        Returns:
+            None: The kernel execution is asynchronous.
+        """
         device = self.driver.framework.get_device()
 
         constexpr_vals = self._get_signature(*args, **kwargs)

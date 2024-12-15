@@ -18,7 +18,7 @@ class TorchGPUFramework(GPUFramework):
 
     def __init__(self) -> None:
         if torch is None:
-            raise RuntimeError
+            raise RuntimeError("PyTorch is not installed. Please install PyTorch to use the TorchGPUFramework.")
         # TODO: Check if there is a better place to initialize CUDA
         if not torch.cuda.is_initialized():
             torch.cuda.init()
@@ -30,7 +30,7 @@ class TorchGPUFramework(GPUFramework):
     @staticmethod
     def get_stream() -> int:
         if torch is None:
-            raise RuntimeError
+            raise RuntimeError("PyTorch is not installed. Please install PyTorch to use the TorchGPUFramework.")
 
         stream = torch.cuda.current_stream().cuda_stream
         if stream == 0:
@@ -41,14 +41,14 @@ class TorchGPUFramework(GPUFramework):
     @staticmethod
     def get_device() -> int:
         if torch is None:
-            raise RuntimeError
+            raise RuntimeError("PyTorch is not installed. Please install PyTorch to use the TorchGPUFramework.")
 
         return torch.cuda.current_device()
 
     @staticmethod
     def set_device(device: int | str):
         if torch is None:
-            raise RuntimeError
+            raise RuntimeError("PyTorch is not installed. Please install PyTorch to use the TorchGPUFramework.")
 
         return torch.cuda.set_device(device)
 
@@ -81,7 +81,7 @@ class TorchGPUFramework(GPUFramework):
 
         # Dictionary mapping Python types to their corresponding ctype handlers
         if torch is None:
-            raise RuntimeError
+            raise RuntimeError("PyTorch is not installed. Please install PyTorch to use the TorchGPUFramework.")
 
         TYPE_HANDLERS = {
             torch.Tensor: lambda x: (x.data_ptr(), ctypes.c_void_p),
