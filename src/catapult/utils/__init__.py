@@ -1,5 +1,5 @@
-from .torch_utils import custom_op 
+from . import torch
 
 __all__ = [
-    "custom_op",
+    "torch",
 ]

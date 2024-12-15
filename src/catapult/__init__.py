@@ -16,7 +16,6 @@ from .runtime import (
     uint64,
     void,
 )
-from .utils import custom_op
 from .runtime.jit import jit
 from .runtime import autotune, Config
 
@@ -40,5 +39,4 @@ __all__ = [
     "uint32",
     "uint64",
     "void",
-    "custom_op",
 ]

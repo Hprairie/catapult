@@ -61,8 +61,14 @@ class JITKernel(KernelInterface[T]):
     def __call__(self, *args, **kwargs):
         raise KernelLaunchError("Not able to call kernel object")
 
-    def run(self, *args, grid: List[int], thread_grid: List[int], warmup: Optional[List[int]] = None, **kwargs):
-        # TODO: Make better errors
+    def run(
+        self,
+        *args,
+        grid: Optional[List[int]],
+        thread_grid: Optional[List[int]],
+        warmup: Optional[List[int]] = None,
+        **kwargs,
+    ):
         if grid is None:
             raise KernelLaunchError("GRID IS NONE")
         if thread_grid is None:

@@ -9,6 +9,7 @@ from catapult.compiler.cuda.errors import checkCudaErrors
 
 
 class CUDABackend(Backend):
+
     def __init__(self) -> None:
         pass
 
@@ -23,12 +24,14 @@ class CUDABackend(Backend):
         calling_dir: str,
         device: int,
         compile_options: List[bytes] | None = None,
-        num_headers: int = 0,
+        num_headers: Optional[int] = 0,
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
         method: Optional[str] = "ptx",
     ) -> _NVRTCProgram:
+        _available_methods = ["ptx"]
+
         if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
             with open(os.path.join(calling_dir, source), "r") as f:
                 source = f.read()
@@ -40,6 +43,9 @@ class CUDABackend(Backend):
 
         if method is None:
             method = "ptx"
+        elif method not in _available_methods:
+            # TODO: Create better error messaging
+            raise ValueError("Attempting to create CUDA compiler with invalid method type")
 
         return _NVRTCProgram(
             source=source,

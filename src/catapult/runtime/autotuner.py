@@ -1,7 +1,7 @@
 import time
 import torch
 import os
-from typing import List, Dict, Any, Callable, Optional, Union
+from typing import List, Dict, Any, Callable, Optional
 from dataclasses import dataclass
 import functools
 

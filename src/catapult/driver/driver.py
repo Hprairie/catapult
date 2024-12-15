@@ -4,9 +4,9 @@ from .framework import Framework, GPUFramework
 
 class Driver:
     def __init__(self, framework: Framework | GPUFramework, backend: Backend) -> None:
-        if not issubclass(framework, Framework) or not issubclass(framework, GPUFramework):
+        if not issubclass(type(framework), Framework) or not issubclass(type(framework), GPUFramework):
             raise TypeError(f"Expected a Framework when creating a Driver, but got {type(framework)}")
-        if not issubclass(backend, Backend):
+        if not issubclass(type(backend), Backend):
             raise TypeError(f"Expected a Backend when creating a Driver, but got {type(backend)}")
         if backend.get_name() not in framework.get_available_targets():
             raise TypeError(
@@ -19,7 +19,7 @@ class Driver:
         return self.framework.get_name() + "." + self.backend.get_name()
 
     def register_new_backend(self, backend: Backend) -> None:
-        if not issubclass(backend, Backend):
+        if not issubclass(type(backend), Backend):
             raise TypeError(f"Expected a Backend when creating a Driver, but got {type(backend)}")
         if self.framework.get_available_targets() != backend.get_name():
             raise TypeError(
@@ -28,7 +28,7 @@ class Driver:
         self.backend = backend
 
     def register_new_framework(self, framework: Framework) -> None:
-        if not issubclass(framework, Framework):
+        if not issubclass(type(framework), Framework):
             raise TypeError(f"Expected a Framework when creating a Driver, but got {type(framework)}")
         if self.backend.get_name() != framework.get_available_targets():
             raise TypeError(
