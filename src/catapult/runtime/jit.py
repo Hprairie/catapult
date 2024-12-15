@@ -39,9 +39,17 @@ class JITKernel(KernelInterface[T]):
 
         # TODO: Add debugging option
 
-        self.compiler = self.driver.backend.get_compiler(source=kernel_path, name=kernel_name, calling_dir=calling_dir, device=self.driver.framework.get_device(), compile_options=compile_options, include_names=include, method=method, template_params=template_params)
+        self.compiler = self.driver.backend.get_compiler(
+            source=kernel_path,
+            name=kernel_name,
+            calling_dir=calling_dir,
+            device=self.driver.framework.get_device(),
+            compile_options=compile_options,
+            include_names=include,
+            method=method,
+            template_params=template_params,
+        )
         self.cache = defaultdict(dict)
-
 
     def _get_signature(self, *args, **kwargs):
         constexpr_vals = []
@@ -53,8 +61,14 @@ class JITKernel(KernelInterface[T]):
     def __call__(self, *args, **kwargs):
         raise KernelLaunchError("Not able to call kernel object")
 
-    def run(self, *args, grid: List[int] = None, thread_grid: List[int] = None, warmup: List[int] = None, **kwargs):
-        # TODO: Make better errors
+    def run(
+        self,
+        *args,
+        grid: Optional[List[int]],
+        thread_grid: Optional[List[int]],
+        warmup: Optional[List[int]] = None,
+        **kwargs,
+    ):
         if grid is None:
             raise KernelLaunchError("GRID IS NONE")
         if thread_grid is None:
@@ -71,10 +85,11 @@ class JITKernel(KernelInterface[T]):
             kernel, _ = self.compiler.get_kernel()
             self.cache[device][key] = kernel
 
-
         arg_values, arg_types = self.driver.framework.clean_values(args)
 
-        self.driver.backend.launch_backend(self.driver.framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs)
+        self.driver.backend.launch_backend(
+            self.driver.framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs
+        )
 
         return
 

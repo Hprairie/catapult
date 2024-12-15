@@ -1,4 +1,6 @@
 import ctypes
+from typing import List, Tuple
+
 from catapult.driver import Framework, GPUFramework
 
 try:
@@ -15,29 +17,39 @@ class TorchBaseFramework(Framework):
 class TorchGPUFramework(GPUFramework):
 
     def __init__(self) -> None:
-
+        if torch is None:
+            raise RuntimeError
         # TODO: Check if there is a better place to initialize CUDA
         if not torch.cuda.is_initialized():
             torch.cuda.init()
-        
+
         # Initialize target to None
         # Requires that we register a target backend before using the framework
         self.target = None
 
     @staticmethod
-    def get_stream() -> str:
-        stream = torch.cuda.current_stream()
-        if stream.cuda_stream == 0:
+    def get_stream() -> int:
+        if torch is None:
+            raise RuntimeError
+
+        stream = torch.cuda.current_stream().cuda_stream
+        if stream == 0:
             torch.cuda.set_stream(torch.cuda.Stream())
-        stream = torch.cuda.current_stream()
-        return stream.cuda_stream
-    
+            stream = torch.cuda.current_stream().cuda_stream
+        return stream
+
     @staticmethod
-    def get_device():
+    def get_device() -> int:
+        if torch is None:
+            raise RuntimeError
+
         return torch.cuda.current_device()
-    
+
     @staticmethod
     def set_device(device: int | str):
+        if torch is None:
+            raise RuntimeError
+
         return torch.cuda.set_device(device)
 
     @staticmethod
@@ -47,16 +59,16 @@ class TorchGPUFramework(GPUFramework):
     @staticmethod
     def get_name() -> str:
         return "torch"
-    
+
     @staticmethod
     def get_available_targets():
         return ["cuda"]
-    
+
     def set_target(self, target: str) -> None:
         self.target = target
-    
+
     @staticmethod
-    def clean_values(args):
+    def clean_values(args) -> Tuple[Tuple, Tuple]:
         """
         Prepares arguments for CUDA kernel launch with proper C types using a dictionary-based approach.
 
@@ -68,6 +80,8 @@ class TorchGPUFramework(GPUFramework):
         """
 
         # Dictionary mapping Python types to their corresponding ctype handlers
+        if torch is None:
+            raise RuntimeError
 
         TYPE_HANDLERS = {
             torch.Tensor: lambda x: (x.data_ptr(), ctypes.c_void_p),

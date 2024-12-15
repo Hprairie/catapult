@@ -3,8 +3,13 @@ from typing import Optional
 
 from catapult.driver import backends, frameworks, Driver
 
-FRAMEWORKS = {"torch": frameworks["torch"].TorchGPUFramework,}
-BACKENDS = {"cuda": backends["cuda"].CUDABackend,}
+FRAMEWORKS = {
+    "torch": frameworks["torch"].TorchGPUFramework,
+}
+BACKENDS = {
+    "cuda": backends["cuda"].CUDABackend,
+}
+
 
 @lru_cache
 def get_driver(framework_name: Optional[str] = None, backend_name: Optional[str] = None) -> Driver:

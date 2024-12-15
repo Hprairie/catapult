@@ -9,7 +9,6 @@ class CompileException(Exception):
     pass
 
 
-
 def _cudaGetErrorEnum(error):
     if isinstance(error, cuda.CUresult):
         err, name = cuda.cuGetErrorName(error)

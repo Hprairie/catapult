@@ -1,5 +1,4 @@
 import torch
-from functools import wraps
 from typing import Callable, List, Optional
 
 
@@ -44,7 +43,9 @@ def custom_op(
 
     def decorator(fn):
         # Create custom op using PyTorch's API
-        decorated_fn = torch.library.custom_op(name, mutates_args=mutates_args, device_types=device_types, schema=schema)(fn)
+        decorated_fn = torch.library.custom_op(
+            name, mutates_args=mutates_args, device_types=device_types, schema=schema
+        )(fn)
 
         if backward_fn is not None:
             torch.library.register_autograd(name, backward_fn, setup_context=setup_context)

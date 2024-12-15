@@ -1,12 +1,10 @@
-import os
 from typing import Optional, Tuple, List
-from cuda import cuda, nvrtc, cudart
+from cuda import cuda, nvrtc
 
 from .errors import CompileException, NVRTCException, checkCudaErrors
 
 from catapult.compiler.base import Compiler
 from catapult.runtime.types import dtype
-from catapult.driver import Framework
 
 
 class _NVRTCProgram(Compiler):
@@ -15,30 +13,38 @@ class _NVRTCProgram(Compiler):
         source: bytes,
         name: bytes,
         device: int,
-        compile_options: List[bytes] = None,
-        num_headers: int = 0,
+        compile_options: Optional[List[bytes]] = None,
+        num_headers: Optional[int] = None,
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
-        method: str = "ptx",
+        method: Optional[str] = "ptx",
     ):
+        if not isinstance(source, bytes):
+            raise CompileException(
+                f"Error instantiaing NVRTC kernel Compiler.",
+                f"Value source was passed with ({type(source)}) when it should be of type (bytes).",
+            )
+        if not isinstance(name, bytes):
+            raise CompileException(
+                f"Error instantiaing NVRTC kernel Compiler.",
+                f"Value name was passed with ({type(name)}) when it should be of type (bytes).",
+            )
         self.source_bytes = source
         self.name_bytes = name
-        source = source.decode("UTF-8")
-        name = name.decode("UTF-8")
-        self.source = source
-        self.name = name
-        if num_headers < 0:
+        self.source = source.decode("UTF-8")
+        self.name = name.decode("UTF-8")
+        if num_headers is not None and num_headers < 0:
             raise CompileException(
                 f"Error instantiating kernel: {self.name}",
                 f"Value num_headers was passed < 0 and should be >= 0",
             )
-        if num_headers > 0 and headers is None:
+        if num_headers is not None and num_headers > 0 and headers is None:
             raise CompileException(
                 f"Error instantiating kernel: {self.name}",
                 f"Value num_headers > 0, but headers is None type",
             )
-        if num_headers > 0 and include_names is None:
+        if num_headers is not None and num_headers > 0 and include_names is None:
             raise CompileException(
                 f"Error instantiating kernel: {self.name}",
                 f"Value num_headers > 0, but include_names is None type",
@@ -70,17 +76,19 @@ class _NVRTCProgram(Compiler):
         # Compile options need to be set after self.major and self.minor
         self.compile_options = self._get_options(compile_options)
 
-
     def __del__(self):
         pass
 
-    def get_source(self):
-        return self.source
+    def get_source(self) -> bytes:
+        return self.source_bytes
 
-    def get_name(self):
+    def get_name(self) -> bytes:
+        # TODO: Create better error messaging
+        if not isinstance(self.name_bytes, bytes):
+            raise NVRTCException("Error accessing NVRTC Program, returning non-bytes object")
         return self.name_bytes
 
-    def compile(self, template_vals):
+    def compile(self, template_vals) -> None:
         # TODO: Setup error handling
         named_expression = None
         if len(template_vals):
@@ -90,6 +98,7 @@ class _NVRTCProgram(Compiler):
         checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options))
         mapping = None
         if named_expression:
+            # TODO: Check if this is a good way of doing this
             self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression))
 
         if self.method == "cubin":
@@ -97,7 +106,7 @@ class _NVRTCProgram(Compiler):
             raise NotImplementedError("CUBIN NOT ALLOWED.")
             return checkCudaErrors(nvrtc.nvrtcGetCUBIN(self.program)), mapping
         elif self.method == "ptx":
-            ptx_size = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program))
+            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program))
             ptx = b" " * ptx_size
             checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx))
             self.compiled_program = ptx
@@ -108,7 +117,7 @@ class _NVRTCProgram(Compiler):
                 f"Error instantiating kernel: {self.name}",
                 f"Unknown compilation method: {self.method}",
             )
-    
+
     def _get_options(self, compile_options):
         """
         Get compilation options for the CUDA kernel, handling GPU architecture specifications.
@@ -152,7 +161,7 @@ class _NVRTCProgram(Compiler):
                 options.append(default_opt)
 
         return options
-    
+
     def _create_template_string(self, template_vals):
         if self.template_params is None:
             # TODO: Better error messaging
@@ -173,7 +182,6 @@ class _NVRTCProgram(Compiler):
                 extra_includes += val.include_files
 
         return f"{self.name}<{', '.join(template)}>", extra_includes
-
 
     def get_kernel(self):
         if self.compiled_program is None:

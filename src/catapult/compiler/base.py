@@ -1,7 +1,7 @@
+from typing import Tuple, Any
 from abc import ABCMeta, abstractmethod
 
 from catapult.runtime import types
-from catapult.runtime.types import dtype
 
 
 class Compiler(metaclass=ABCMeta):
@@ -29,19 +29,25 @@ class Compiler(metaclass=ABCMeta):
     _special_kernel_kwargs = ["stream", "smem"]
 
     @abstractmethod
-    def __init__(self) -> None: ...
+    def __init__(self) -> None:
+        raise NotImplementedError
 
     @abstractmethod
-    def __del__() -> None: ...
+    def __del__(self) -> None:
+        raise NotImplementedError
 
     @abstractmethod
-    def get_source() -> str: ...
+    def get_source(self) -> bytes:
+        raise NotImplementedError
 
     @abstractmethod
-    def get_name() -> str: ...
+    def get_name(self) -> bytes:
+        raise NotImplementedError
 
     @abstractmethod
-    def compile() -> None: ...
+    def compile(self, template_vals) -> None:
+        raise NotImplementedError
 
     @abstractmethod
-    def get_kernel() -> None: ...
+    def get_kernel(self) -> Tuple[Any, Any]:
+        raise NotImplementedError

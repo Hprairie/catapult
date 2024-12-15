@@ -11,15 +11,16 @@ def _load_module(name, path):
     try:
         # Try Python 3.5+ approach first
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(name, path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
     except (ImportError, AttributeError):
         # Fallback for older Python versions
         import imp
+
         module = imp.load_source(name, path)
     return module
-
 
 
 def _discover_frameworks():
@@ -29,8 +30,9 @@ def _discover_frameworks():
     for framework in os.listdir(root_framework):
         framework_module = _load_module(framework, os.path.join(root_framework, framework, "framework.py"))
         frameworks[framework] = framework_module
-    
+
     return frameworks
+
 
 def _discover_backends():
     backends = {}
@@ -39,7 +41,7 @@ def _discover_backends():
     for backend in os.listdir(root_backends):
         backend_module = _load_module(backend, os.path.join(root_backends, backend, "backend.py"))
         backends[backend] = backend_module
-    
+
     return backends
 
 

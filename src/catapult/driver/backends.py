@@ -1,7 +1,7 @@
+from typing import List, Optional, Tuple
 from abc import ABCMeta, abstractmethod
 
-# TODO: FIX THIS IMPORT WHEN __init__.py IS CREATED (why do we need to access base an not just compiler?)
-from catapult.compiler.base import Compiler
+from catapult.compiler import Compiler
 
 
 class Backend(metaclass=ABCMeta):
@@ -23,7 +23,18 @@ class Backend(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def get_compiler() -> Compiler:
+    def get_compiler(
+        source: str | bytes,
+        name: str | bytes,
+        calling_dir: str,
+        device: int,
+        compile_options: List[bytes] | None = None,
+        num_headers: Optional[int] = 0,
+        headers: Optional[Tuple[bytes] | List[bytes]] = None,
+        include_names: Optional[Tuple[bytes] | List[bytes]] = None,
+        template_params: Optional[List[str]] = None,
+        method: Optional[str] = "ptx",
+    ) -> Compiler:
         """Create and return a compiler object for this backend.
 
         Returns:
@@ -32,7 +43,7 @@ class Backend(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def launch_backend() -> None:
+    def launch_backend(self, framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs) -> None:
         """Launch the backend."""
 
     @staticmethod
@@ -43,7 +54,7 @@ class Backend(metaclass=ABCMeta):
         Returns:
             bool: True if the backend is available, False otherwise
         """
-    
+
     @staticmethod
     @abstractmethod
     def get_name() -> str:
