@@ -44,8 +44,10 @@ class CUDABackend(Backend):
         if method is None:
             method = "ptx"
         elif method not in _available_methods:
-            # TODO: Create better error messaging
-            raise ValueError("Attempting to create CUDA compiler with invalid method type")
+            raise ValueError(
+                f"Invalid method '{method}' specified for CUDA compiler. "
+                f"Available methods are: {', '.join(_available_methods)}"
+            )
 
         return _NVRTCProgram(
             source=source,

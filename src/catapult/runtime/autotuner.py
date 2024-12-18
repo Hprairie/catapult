@@ -8,15 +8,19 @@ import functools
 
 @dataclass
 class Config:
-    """Configuration container for kernel parameters"""
+    """Configuration container for kernel parameters
+
+    Attributes:
+        params: Dictionary containing kernel parameter names and their values
+    """
 
     params: Dict[str, Any]
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         return self.params[key]
 
-    def items(self):
-        return self.params.items()
+    def items(self) -> List[tuple[str, Any]]:
+        return list(self.params.items())
 
 
 class Autotuner:
@@ -30,17 +34,18 @@ class Autotuner:
         warmup: int = 10,
         rep: int = 50,
     ):
-        # TODO: Create better error message
         if not isinstance(configs, list):
-            raise TypeError("configs must be a list of Config objects")
+            raise TypeError(f"'configs' must be a list, got {type(configs).__name__}")
         if not isinstance(key, list):
-            raise TypeError("key must be a list of strings")
+            raise TypeError(f"'key' must be a list, got {type(key).__name__}")
         if not all(isinstance(c, Config) for c in configs):
-            raise TypeError("configs must be a list of Config objects")
+            invalid_configs = [c for c in configs if not isinstance(c, Config)]
+            raise TypeError(f"All items in 'configs' must be Config objects. Invalid items: {invalid_configs}")
         if not all(isinstance(k, str) for k in key):
-            raise TypeError("key must be a list of strings")
+            invalid_keys = [k for k in key if not isinstance(k, str)]
+            raise TypeError(f"All items in 'key' must be strings. Invalid items: {invalid_keys}")
         if len(configs) == 0:
-            raise ValueError("configs must not be empty")
+            raise ValueError("'configs' list cannot be empty - at least one configuration is required")
 
         self.configs = configs
         self.key = key
@@ -52,13 +57,13 @@ class Autotuner:
         self.cache = {}
 
         if len(self.reset_to_zero):
-            raise NotImplementedError
+            raise NotImplementedError("reset_to_zero feature is not yet implemented")
 
         if len(self.restore_value):
-            raise NotImplementedError
+            raise NotImplementedError("restore_value feature is not yet implemented")
 
         if len(self.prune_configs_by):
-            raise NotImplementedError
+            raise NotImplementedError("prune_configs_by feature is not yet implemented")
 
     def __call__(self, func):
         @functools.wraps(func)
@@ -101,9 +106,15 @@ class Autotuner:
                     best_time = avg_time
                     best_config = config
 
-            # TODO: Get better error handeling
             if best_config is None:
-                raise RuntimeError("best_config is NONE when it shouldn't")
+                raise RuntimeError(
+                    f"Failed to find best configuration for kernel '{func.__name__}'. "
+                    f"This could be caused by:\n"
+                    f"1. All configurations failed to execute\n"
+                    f"2. No valid timing measurements were obtained\n"
+                    f"Current configs tested: {[c.params for c in self.configs]}\n"
+                    f"This error is unexpected and should be reported."
+                )
 
             if print_results:
                 print(f"\nCATAPULT AUTOTUNING RESULTS FOR KERNEL: {func.__name__}")
@@ -130,5 +141,22 @@ class Autotuner:
 # ---------------------------
 
 
-def autotune(configs: List[Config], key: List[str], **kwargs) -> Callable:
-    return Autotuner(configs, key, **kwargs)
+def autotune(
+    configs: List[Config],
+    key: List[str],
+    *,
+    prune_configs_by: Optional[Dict[str, Any]] = None,
+    reset_to_zero: Optional[List[str]] = None,
+    restore_value: Optional[List[str]] = None,
+    warmup: int = 10,
+    rep: int = 50,
+) -> Callable:
+    return Autotuner(
+        configs=configs,
+        key=key,
+        prune_configs_by=prune_configs_by,
+        reset_to_zero=reset_to_zero,
+        restore_value=restore_value,
+        warmup=warmup,
+        rep=rep,
+    )

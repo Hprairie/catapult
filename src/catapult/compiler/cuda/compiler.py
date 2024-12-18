@@ -83,9 +83,11 @@ class _NVRTCProgram(Compiler):
         return self.source_bytes
 
     def get_name(self) -> bytes:
-        # TODO: Create better error messaging
         if not isinstance(self.name_bytes, bytes):
-            raise NVRTCException("Error accessing NVRTC Program, returning non-bytes object")
+            raise NVRTCException(
+                f"Error in NVRTC Program get_name(): Expected name_bytes to be of type 'bytes' but got '{type(self.name_bytes).__name__}'. "
+                "This may indicate corruption of the internal program name or improper initialization."
+            )
         return self.name_bytes
 
     def compile(self, template_vals) -> None:
@@ -94,21 +96,21 @@ class _NVRTCProgram(Compiler):
         if len(template_vals):
             named_expression, extra_includes = self._create_template_string(template_vals)
             named_expression = bytes(named_expression, "utf-8")
-            checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression))
-        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options))
+            checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression), self.program)
+        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options), self.program)
         mapping = None
         if named_expression:
             # TODO: Check if this is a good way of doing this
-            self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression))
+            self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression), self.program)
 
         if self.method == "cubin":
             # TODO: Check if this works
             raise NotImplementedError("CUBIN NOT ALLOWED.")
             return checkCudaErrors(nvrtc.nvrtcGetCUBIN(self.program)), mapping
         elif self.method == "ptx":
-            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program))
+            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program), self.program)
             ptx = b" " * ptx_size
-            checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx))
+            checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx), self.program)
             self.compiled_program = ptx
             self.mapping = mapping
             return
@@ -125,13 +127,9 @@ class _NVRTCProgram(Compiler):
         Returns:
             List[bytes]: List of compilation options as bytes objects
         """
-        # Start with default options if provided during initialization
         options = list(compile_options) if compile_options else []
-
-        # Convert all string options to bytes if they aren't already
         options = [opt if isinstance(opt, bytes) else opt.encode("ascii") for opt in options]
 
-        # Generate architecture argument based on compute capability
         arch_spec = f"sm_{self.major}{self.minor}"
 
         # Check if there's an existing architecture specification
@@ -148,7 +146,6 @@ class _NVRTCProgram(Compiler):
                 has_arch_spec = True
                 break
 
-        # Add new architecture specification if none exists
         if not has_arch_spec:
             options.append(f"--gpu-architecture={arch_spec}".encode("ascii"))
 
@@ -164,9 +161,15 @@ class _NVRTCProgram(Compiler):
 
     def _create_template_string(self, template_vals):
         if self.template_params is None:
-            # TODO: Better error messaging
             raise ValueError(
-                "No `template_params` were passed to catapult.jit, however **kwargs where passed to kernel."
+                "Template parameters are required but none were provided in the @catapult.jit decorator.\n"
+                "Example usage:\n"
+                "@catapult.jit(\n"
+                "    kernel_path='example_template.cuh',\n"
+                "    kernel_name='example_kernel_name',\n"
+                "    template_params=['N']  # List the template parameters in order\n"
+                ")\n"
+                f"template_params is None but Received kwargs: {list(template_vals.keys())}"
             )
         template = []
         extra_includes = []
@@ -174,9 +177,27 @@ class _NVRTCProgram(Compiler):
             if key in self._special_kernel_kwargs:
                 continue
             val = template_vals[key]
+
+            # Verbose error message for unsupported types
             if type(val) not in self._template_conversions:
-                # TODO: Get better error handeling
-                raise ValueError("NOT ALLOWABLE TYPE")
+                type_groups = {
+                    'Python built-in types': [],
+                    'catapult.types': []
+                }
+                
+                for allowed_type in self._template_conversions.keys():
+                    if allowed_type.__module__ == 'builtins':
+                        type_groups['Python built-in types'].append(allowed_type.__name__)
+                    else:
+                        type_groups['catapult.types'].append(allowed_type.__name__)
+                
+                error_msg = [f"Template parameter '{key}' has unsupported type '{type(val).__name__}'.", "Allowed types are:"]
+                for group_name, types in type_groups.items():
+                    if types:
+                        error_msg.append(f"  * {group_name}: {', '.join(sorted(types))}")
+                
+                raise ValueError('\n'.join(error_msg))
+            
             template.append(self._template_conversions[type(val)](val))
             if isinstance(val, dtype) and val.include_files is not None:
                 extra_includes += val.include_files
@@ -185,7 +206,13 @@ class _NVRTCProgram(Compiler):
 
     def get_kernel(self):
         if self.compiled_program is None:
-            raise ValueError("Attemtping to get kernel before compiling the program?")
+            raise ValueError(
+                f"Error accessing kernel '{self.name}': Kernel has not been compiled yet.\n"
+                "The compile() method must be called before attempting to get the kernel.\n"
+                "This usually happens automatically when the kernel is called with parameters.\n"
+                "If you're seeing this error, it may indicate a problem with template parameter resolution "
+                "or an issue in the compilation pipeline."
+            )
         module = checkCudaErrors(cuda.cuModuleLoadData(self.compiled_program))
         kernel = checkCudaErrors(cuda.cuModuleGetFunction(module, self.name_bytes))
         return kernel, self.mapping
