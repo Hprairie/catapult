@@ -96,21 +96,21 @@ class _NVRTCProgram(Compiler):
         if len(template_vals):
             named_expression, extra_includes = self._create_template_string(template_vals)
             named_expression = bytes(named_expression, "utf-8")
-            checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression))
-        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options))
+            checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression), self.program)
+        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options), self.program)
         mapping = None
         if named_expression:
             # TODO: Check if this is a good way of doing this
-            self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression))
+            self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression), self.program)
 
         if self.method == "cubin":
             # TODO: Check if this works
             raise NotImplementedError("CUBIN NOT ALLOWED.")
             return checkCudaErrors(nvrtc.nvrtcGetCUBIN(self.program)), mapping
         elif self.method == "ptx":
-            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program))
+            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program), self.program)
             ptx = b" " * ptx_size
-            checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx))
+            checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx), self.program)
             self.compiled_program = ptx
             self.mapping = mapping
             return
@@ -177,6 +177,8 @@ class _NVRTCProgram(Compiler):
             if key in self._special_kernel_kwargs:
                 continue
             val = template_vals[key]
+
+            # Verbose error message for unsupported types
             if type(val) not in self._template_conversions:
                 type_groups = {
                     'Python built-in types': [],

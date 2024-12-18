@@ -25,7 +25,7 @@ class KernelInterface(Generic[T]):
                 "         |      |_block dims   |_thread dims\n"
                 "         |_kernel object"
             )
-        
+
         if not isinstance(grid, tuple) or len(grid) != 2 or len(grid[0]) != 3 or len(grid[1]) != 3:
             raise KernelLaunchError(
                 "Grid configuration must be a tuple of (block_dims, thread_dims).\n"
@@ -100,10 +100,12 @@ class JITKernel(KernelInterface[T]):
 
     def __call__(self, *args, **kwargs):
         raise KernelLaunchError(
-            "Kernel must be launched with grid configuration using square bracket syntax.\n"
+            "JITKernel object can not be called directly and instead should be launched using a grid configuration.\n"
             "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
             "         |      |_block dims   |_thread dims\n"
             "         |_kernel object"
+            "\n"
+            "If you are seeing this error, it means you are trying to call the kernel directly without a grid configuration."
         )
 
     def run(
