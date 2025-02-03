@@ -9,6 +9,7 @@ NUM_THREADS = 128
 NUM_BLOCKS = 32
 N = NUM_THREADS * NUM_BLOCKS
 NUM_RUNS = 100
+NUM_WARMUP = 100  # Increased warmup iterations
 
 @catapult.jit(
     kernel_path="example_kernel.cu",
@@ -25,12 +26,18 @@ def benchmark():
     x = torch.rand(N, device=device, dtype=torch.float32)
     y = torch.rand(N, device=device, dtype=torch.float32)
     
-    # Warmup
-    for _ in range(10):
+    # Extended warmup phase
+    print("Warming up kernels...")
+    for _ in range(NUM_WARMUP):
         _ = catapult_saxpy(a, x, y)
+        torch.cuda.synchronize()
         _ = saxpy_cuda.saxpy(a, x, y)
+        torch.cuda.synchronize()
     
+    # Clear cache after warmup
+    torch.cuda.empty_cache()
     torch.cuda.synchronize()
+    print("Warmup complete")
     
     catapult_times = []
     torch_ext_times = []
