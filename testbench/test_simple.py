@@ -3,9 +3,9 @@ import torch
 import catapult
 
 @catapult.jit(kernel_path='cu/simple.cu', kernel_name='global_reduce_kernel')
-def greduce(kernel, blk, N, din):
+def greduce(blk, N, din):
     output = torch.zeros_like(din)
-    kernel[(blk, 1, 1), (N, 1, 1)](output, din)
+    greduce.kernel[(blk, 1, 1), (N, 1, 1)](output, din)
     return output
 
 @pytest.mark.parametrize("N", [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024])
