@@ -1,2 +1,2 @@
-class CacheError(Exception):
+class KernelLaunchError(Exception):
     pass
