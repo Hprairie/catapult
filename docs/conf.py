@@ -23,6 +23,7 @@ extensions = [
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+autodoc_mock_imports = ["cuda"]
 # Napoleon Settings
 napoleon_google_docstring = True  # Enable Google-style docstrings
 #napoleon_numpy_docstring = False  # Disable NumPy-style docstrings (optional)
