@@ -18,7 +18,8 @@ author = 'Hayden Prairie, Frank Collebrusco, Arsh Guntakal, Siddharth Benoy'
 
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'breathe'
 ]
 
 templates_path = ['_templates']
@@ -38,3 +39,7 @@ napoleon_include_init_with_doc = True  # Include __init__ docstring in class doc
 
 html_theme = 'alabaster'
 html_static_path = ['_static']
+
+#Breathe configuration
+breathe_projects = {"catapult": "_build/doxygen/xml"}
+breathe_default_project = "catapult"

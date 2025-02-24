@@ -16,3 +16,10 @@ documentation for details.
    :caption: Contents:
    
    test_module
+   cpp_docs
+
+   Doxygen-generated documentation:
+------------------------------
+
+.. doxygenindex::
+   :project: catapult  # Link it to the Doxygen project name
