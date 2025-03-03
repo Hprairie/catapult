@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>catapult.runtime.types &#8212; catapult  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for catapult.runtime.types</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+
+<div class="viewcode-block" id="dtype">
+<a class="viewcode-back" href="../../../source/catapult.runtime.html#catapult.runtime.types.dtype">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">dtype</span><span class="p">:</span>
+    <span class="n">SINT_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="s2">&quot;int16&quot;</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="s2">&quot;int64&quot;</span><span class="p">]</span>
+    <span class="n">UINT_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;int1&quot;</span><span class="p">,</span> <span class="s2">&quot;uint8&quot;</span><span class="p">,</span> <span class="s2">&quot;uint16&quot;</span><span class="p">,</span> <span class="s2">&quot;uint32&quot;</span><span class="p">,</span> <span class="s2">&quot;uint64&quot;</span><span class="p">]</span>
+    <span class="n">FP_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;fp16&quot;</span><span class="p">,</span> <span class="s2">&quot;bf16&quot;</span><span class="p">,</span> <span class="s2">&quot;fp32&quot;</span><span class="p">,</span> <span class="s2">&quot;fp64&quot;</span><span class="p">]</span>
+    <span class="n">OTHER_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;void&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cuda_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">include_files</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cuda_type</span> <span class="o">=</span> <span class="n">cuda_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">include_files</span> <span class="o">=</span> <span class="n">include_files</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cuda_type</span></div>
+
+
+
+<span class="c1"># TODO: These need to be checked (include missing)</span>
+<span class="n">void</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;void&quot;</span><span class="p">,</span> <span class="s2">&quot;void&quot;</span><span class="p">)</span>
+<span class="n">int1</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;int1&quot;</span><span class="p">,</span> <span class="s2">&quot;int1_t&quot;</span><span class="p">)</span>
+<span class="n">int8</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="s2">&quot;int8_t&quot;</span><span class="p">)</span>
+<span class="n">int16</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;int16&quot;</span><span class="p">,</span> <span class="s2">&quot;int16_t&quot;</span><span class="p">)</span>
+<span class="n">int32</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="s2">&quot;int32_t&quot;</span><span class="p">)</span>
+<span class="n">int64</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">,</span> <span class="s2">&quot;int64_t&quot;</span><span class="p">)</span>
+<span class="n">uint8</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;uint8&quot;</span><span class="p">,</span> <span class="s2">&quot;uint8_t&quot;</span><span class="p">)</span>
+<span class="n">uint16</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;uint16&quot;</span><span class="p">,</span> <span class="s2">&quot;uint16_t&quot;</span><span class="p">)</span>
+<span class="n">uint32</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;uint32&quot;</span><span class="p">,</span> <span class="s2">&quot;uint32_t&quot;</span><span class="p">)</span>
+<span class="n">uint64</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;uint64&quot;</span><span class="p">,</span> <span class="s2">&quot;uint64_t&quot;</span><span class="p">)</span>
+<span class="n">float16</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;fp16&quot;</span><span class="p">,</span> <span class="s2">&quot;half&quot;</span><span class="p">)</span>
+<span class="n">bfloat16</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;bf16&quot;</span><span class="p">,</span> <span class="s2">&quot;nv_bfloat16&quot;</span><span class="p">)</span>
+<span class="n">float32</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;fp32&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">)</span>
+<span class="n">float64</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;fp64&quot;</span><span class="p">,</span> <span class="s2">&quot;double&quot;</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">catapult</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp_docs.html">C++ API Documentation</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Hayden Prairie, Frank Collebrusco, Arsh Guntakal, Siddharth Benoy.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.1</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

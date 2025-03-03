@@ -14,12 +14,12 @@ documentation for details.
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-   
-   test_module
-   cpp_docs
+   :glob:
 
-   Doxygen-generated documentation:
-------------------------------
+   source/*
 
+..
+..   Doxygen-generated documentation:
+..
 .. doxygenindex::
-   :project: catapult  # Link it to the Doxygen project name
+.. :project: catapult  # Link it to the Doxygen project name
