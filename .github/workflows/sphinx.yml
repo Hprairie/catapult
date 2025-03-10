@@ -8,6 +8,9 @@ on:
       - doc-infra
 
 jobs:
+  job-name:
+    permissions:
+      contents: write
   build_docs:
     runs-on: ubuntu-latest
 
