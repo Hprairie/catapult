@@ -1,10 +1,11 @@
 import os
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 
 from cuda import cuda
 
 from catapult.driver import Backend
 from catapult.compiler import _NVRTCProgram
+from catapult.compiler.cuda.nvcc import _NVCCProgram  # TODO: Fix this
 from catapult.compiler.cuda.errors import checkCudaErrors
 
 
@@ -21,6 +22,7 @@ class CUDABackend(Backend):
     def get_compiler(
         source: str | bytes,
         name: str | bytes,
+        kernel_param: str | bytes,
         calling_dir: str,
         device: int,
         compile_options: List[bytes] | None = None,
@@ -28,9 +30,9 @@ class CUDABackend(Backend):
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
-        method: Optional[str] = "ptx",
-    ) -> _NVRTCProgram:
-        _available_methods = ["ptx"]
+        method: Optional[str] = "nvcc",
+    ) -> Union[_NVCCProgram, _NVRTCProgram]:
+        _available_methods = ["nvcc"]
 
         if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
             with open(os.path.join(calling_dir, source), "r") as f:
@@ -39,22 +41,17 @@ class CUDABackend(Backend):
             source = bytes(source, "utf-8")
         if isinstance(name, str):
             name = bytes(name, "utf-8")
-        # TODO: Add type checking for bytes for compile_options
+        if isinstance(kernel_param, str):
+            kernel_param = bytes(kernel_param, "utf-8")
 
-        if method is None:
-            method = "ptx"
-        elif method not in _available_methods:
-            raise ValueError(
-                f"Invalid method '{method}' specified for CUDA compiler. "
-                f"Available methods are: {', '.join(_available_methods)}"
-            )
-
-        return _NVRTCProgram(
+        method = "nvcc"
+        return _NVCCProgram(
             source=source,
             name=name,
+            kernel_param=kernel_param,
             device=device,
-            num_headers=num_headers,
             compile_options=compile_options,
+            num_headers=num_headers,
             headers=headers,
             include_names=include_names,
             template_params=template_params,
@@ -66,18 +63,19 @@ class CUDABackend(Backend):
         raise NotImplementedError
 
     def launch_backend(self, framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs) -> None:
-        checkCudaErrors(
-            cuda.cuLaunchKernel(
-                kernel,
-                grid[0],
-                grid[1],
-                grid[2],
-                thread_grid[0],
-                thread_grid[1],
-                thread_grid[2],
-                int(kwargs.get("smem", 0)),
-                int(kwargs.get("stream", framework.get_stream())),
-                (arg_values, arg_types),
-                0,
-            )
-        )
+        """
+        Launch a CUDA kernel.
+
+        Args:
+            framework: The framework object providing context (e.g., stream)
+            kernel: The kernel function (from pybind module) or function pointer (for NVRTC)
+            grid: Grid dimensions (3-tuple)
+            thread_grid: Thread block dimensions (3-tuple)
+            arg_values: Kernel arguments values
+            arg_types: Kernel argument types
+            **kwargs: Additional arguments
+        """
+        try:
+            kernel(*arg_values)
+        except Exception as e:
+            raise RuntimeError(f"Error launching NVCC-compiled kernel: {str(e)}")

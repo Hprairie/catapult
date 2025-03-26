@@ -57,6 +57,7 @@ class JITKernel(KernelInterface[T]):
         self,
         kernel_path: str,
         kernel_name: str,
+        kernel_param: Optional[str],
         calling_dir: str,
         compile_options: Optional[List[str]] = None,
         debug: Optional[bool] = None,
@@ -72,6 +73,7 @@ class JITKernel(KernelInterface[T]):
         self.compiler = self.driver.backend.get_compiler(
             source=kernel_path,
             name=kernel_name,
+            kernel_param=kernel_param,
             calling_dir=calling_dir,
             device=self.driver.framework.get_device(),
             compile_options=compile_options,
@@ -80,6 +82,7 @@ class JITKernel(KernelInterface[T]):
             template_params=template_params,
         )
         self.cache = defaultdict(dict)
+        self.method = method if method is not None else "nvcc"
 
     def _get_signature(self, *args, **kwargs):
         """
@@ -145,6 +148,9 @@ class JITKernel(KernelInterface[T]):
             self.cache[device][key] = kernel
 
         arg_values, arg_types = self.driver.framework.clean_values(args)
+        # if self.method == "nvrtc":
+        # else:
+        #     arg_values, arg_types = args, None
 
         self.driver.backend.launch_backend(
             self.driver.framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs
@@ -171,6 +177,7 @@ def jit(
     *,
     kernel_path: str,
     kernel_name: str,
+    kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
     method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
@@ -183,6 +190,7 @@ def jit(
     fn: Optional[T] = None,
     kernel_path: Optional[str] = None,
     kernel_name: Optional[str] = None,
+    kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
     method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
@@ -217,6 +225,7 @@ def jit(
         kernel = JITKernel(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            kernel_param=kernel_param,
             calling_dir=calling_dir,
             compile_options=compile_options,
             debug=debug,

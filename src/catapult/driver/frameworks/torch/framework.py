@@ -104,4 +104,4 @@ class TorchGPUFramework(GPUFramework):
         arg_values = tuple(value for value, _ in processed_args)
         arg_types = tuple(type_ for _, type_ in processed_args)
 
-        return arg_values, arg_types
+        return args, arg_types

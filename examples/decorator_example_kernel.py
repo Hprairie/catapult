@@ -2,7 +2,11 @@ import torch
 import catapult
 
 
-@catapult.jit(kernel_path="example_kernel.cu", kernel_name="saxpy")
+@catapult.jit(
+    kernel_path="example_kernel.cu",
+    kernel_name="saxpy",
+    method="nvcc",
+)
 def testing(a, x, y, N):
     output = torch.zeros_like(x)
 
