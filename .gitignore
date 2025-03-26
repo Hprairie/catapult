@@ -2,3 +2,7 @@
 src/catapult.egg-info/
 __pycache__/
 
+
+.venv
+ign
+
