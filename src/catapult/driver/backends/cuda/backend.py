@@ -30,9 +30,7 @@ class CUDABackend(Backend):
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
-        method: Optional[str] = "nvcc",
     ) -> Union[_NVCCProgram, _NVRTCProgram]:
-        _available_methods = ["nvcc"]
 
         if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
             with open(os.path.join(calling_dir, source), "r") as f:
@@ -44,7 +42,6 @@ class CUDABackend(Backend):
         if isinstance(kernel_param, str):
             kernel_param = bytes(kernel_param, "utf-8")
 
-        method = "nvcc"
         return _NVCCProgram(
             source=source,
             name=name,
@@ -55,7 +52,6 @@ class CUDABackend(Backend):
             headers=headers,
             include_names=include_names,
             template_params=template_params,
-            method=method,
         )
 
     @staticmethod

@@ -63,7 +63,6 @@ class JITKernel(KernelInterface[T]):
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
         include: Optional[List[str]] = None,
-        method: Optional[str] = None,
     ) -> None:
         self.templated = template_params is not None
         self.driver = get_driver()
@@ -78,11 +77,9 @@ class JITKernel(KernelInterface[T]):
             device=self.driver.framework.get_device(),
             compile_options=compile_options,
             include_names=include,
-            method=method,
             template_params=template_params,
         )
         self.cache = defaultdict(dict)
-        self.method = method if method is not None else "nvcc"
 
     def _get_signature(self, *args, **kwargs):
         """
@@ -148,9 +145,6 @@ class JITKernel(KernelInterface[T]):
             self.cache[device][key] = kernel
 
         arg_values, arg_types = self.driver.framework.clean_values(args)
-        # if self.method == "nvrtc":
-        # else:
-        #     arg_values, arg_types = args, None
 
         self.driver.backend.launch_backend(
             self.driver.framework, kernel, grid, thread_grid, arg_values, arg_types, **kwargs
@@ -179,7 +173,6 @@ def jit(
     kernel_name: str,
     kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
-    method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
@@ -192,7 +185,6 @@ def jit(
     kernel_name: Optional[str] = None,
     kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
-    method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
@@ -205,7 +197,6 @@ def jit(
         kernel_path (str): Path to the CUDA kernel file.
         kernel_name (str): Name of the kernel function in the file.
         compile_options (List[str], optional): Additional options for NVRTC compiler.
-        method (str, optional): Compilation method, default is "ptx".
         template_params (List[str], optional): Template parameters for the kernel.
         include (List[str], optional): Additional include paths for the kernel.
         debug (bool, optional): Enables debug mode for the kernel.
@@ -231,7 +222,6 @@ def jit(
             debug=debug,
             template_params=template_params,
             include=include,
-            method=method,
         )
 
         @functools.wraps(func)

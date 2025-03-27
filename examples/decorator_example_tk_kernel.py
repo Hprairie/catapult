@@ -6,7 +6,6 @@ import catapult
     kernel_path="example_tk_kernel.cu",
     kernel_name="copy_kernel",
     kernel_param="globals",
-    method="nvcc",
 )
 def testing(x):
     output = torch.zeros_like(x)

@@ -2,7 +2,6 @@ from typing import Optional, Tuple, List
 import os
 import tempfile
 import subprocess
-import ctypes
 
 from cuda import cuda
 
@@ -26,7 +25,6 @@ class _NVCCProgram(Compiler):
         template_params: Optional[List[str]] = None,
         nvcc_path: Optional[str] = None,
         prebuilt_script: Optional[str] = None,
-        method: Optional[str] = "nvcc",
     ):
         if not isinstance(source, bytes):
             raise CompileException(
@@ -69,11 +67,9 @@ class _NVCCProgram(Compiler):
         self.include_names = include_names
         self.num_headers = num_headers
 
-        # NVCC specific parameters
         self.nvcc_path = nvcc_path or self._find_nvcc()
         self.prebuilt_script = prebuilt_script
 
-        # Get compute capability and architecture argument
         self.cuDevice = checkCudaErrors(cuda.cuDeviceGet(device))
         self.major = checkCudaErrors(
             cuda.cuDeviceGetAttribute(
@@ -87,7 +83,6 @@ class _NVCCProgram(Compiler):
             )
         )
 
-        # Compile options need to be set after self.major and self.minor
         self.compile_options = self._get_options(compile_options)
 
     def __del__(self):
@@ -100,13 +95,11 @@ class _NVCCProgram(Compiler):
 
     def _find_nvcc(self) -> str:
         """Find the nvcc executable on the system."""
-        # Try to find nvcc in PATH on Unix-like systems
         try:
             return subprocess.check_output(["which", "nvcc"], text=True).strip()
         except subprocess.CalledProcessError:
             pass
 
-        # Check common Unix installation paths
         common_paths = [
             "/usr/local/cuda/bin/nvcc",
             "/usr/local/cuda-11.0/bin/nvcc",
@@ -167,25 +160,20 @@ PYBIND11_MODULE(cuda_example, m) {{
         if not os.path.exists(self.nvcc_path):
             raise CompileException(f"Error compiling kernel: {self.name}", f"NVCC not found at path: {self.nvcc_path}")
 
-        # Create a persistent temporary directory for compilation
         base_temp_dir = os.environ.get("CATAPULT_CACHE_HOME")
         if not base_temp_dir:
             base_temp_dir = os.path.expanduser("~/.cache/catapult")
 
-        # Make sure the base directory exists
         os.makedirs(base_temp_dir, exist_ok=True)
 
-        # Create a unique subdirectory for this compilation
         temp_dir = tempfile.mkdtemp(prefix="catapult_nvcc_", dir=base_temp_dir)
 
         try:
-            # Prepare source code
             kernel_name = self.name
             if self.template_params and len(template_vals):
                 named_expression, extra_includes = self._create_template_string(template_vals)
                 kernel_name = named_expression
 
-            # Handle headers if provided
             if self.num_headers and self.headers and self.include_names:
                 for i in range(self.num_headers):
                     header_content = self.headers[i]
@@ -196,32 +184,25 @@ PYBIND11_MODULE(cuda_example, m) {{
                     with open(header_path, "wb") as f:
                         f.write(header_content)
 
-            # Write source to file
             cu_file_path = os.path.join(temp_dir, "kernel.cu")
             with open(cu_file_path, "w") as f:
                 f.write(self.source)
                 f.write(self._create_pybind_module(kernel_name, self.kernel_param.decode("UTF-8")))
-
-            # Output shared library name
             output_file = os.path.join(temp_dir, "libcuda_example.so")
 
-            # Build command line arguments
             arch_flag = f"--gpu-architecture=sm_{self.major}{self.minor}"
             compile_args = [self.nvcc_path]
-
-            # Add compile options
             for opt in self.compile_options:
                 if isinstance(opt, bytes):
                     compile_args.append(opt.decode("ascii"))
                 else:
                     compile_args.append(opt)
 
-            # Add required flags for shared library compilation
             compile_args.extend(
                 [
                     "--shared",
                     "-Xcompiler",
-                    "-fPIC",  # Position-independent code
+                    "-fPIC",
                     arch_flag,
                     "-std=c++20",
                     "--expt-relaxed-constexpr",
@@ -278,16 +259,13 @@ PYBIND11_MODULE(cuda_example, m) {{
                     f"NVCC compilation failed with error:\n{stderr.decode('utf-8')}",
                 )
 
-            # Store the path to the compiled shared library
             self.shared_lib_path = output_file
 
-            # Update kernel name if template was used
             if self.template_params and len(template_vals):
                 self.name = kernel_name
                 self.name_bytes = kernel_name.encode("UTF-8")
 
         except Exception as e:
-            # Clean up the temporary directory on error
             import shutil
 
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -313,44 +291,37 @@ PYBIND11_MODULE(cuda_example, m) {{
             pybind_include = pybind11.get_include()
             default_opts.extend([f"-I{pybind_include}".encode("ascii")])
         except ImportError:
-            # Optional - only needed if using pybind11
-            pass
+            raise CompileException(
+                "Error compiling kernel: {self.name}",
+                "Pybind11 include path not found. Ensure pybind11 is installed.",
+            )
 
-        # Add Python include directories
         try:
             python_includes = subprocess.check_output(["python3-config", "--includes"], text=True).strip()
-            # Split the flags and convert each to bytes
             for flag in python_includes.split():
                 default_opts.append(flag.encode("ascii"))
         except (subprocess.SubprocessError, FileNotFoundError):
-            # If python3-config fails, try a direct approach
             try:
                 import sysconfig
 
                 python_include_dir = sysconfig.get_path("include")
                 default_opts.append(f"-I{python_include_dir}".encode("ascii"))
             except Exception:
-                # Log a warning that Python.h might not be found
                 print("Warning: Could not determine Python include path. Compilation might fail.")
                 pass
 
-        # Add Python linker flags from python3-config
         try:
             python_ldflags = subprocess.check_output(["python3-config", "--ldflags"], text=True).strip()
-            # Split the flags and convert each to bytes
             for flag in python_ldflags.split():
                 default_opts.append(flag.encode("ascii"))
         except (subprocess.SubprocessError, FileNotFoundError):
-            # Proceed if python3-config isn't available
             pass
 
         for default_opt in default_opts:
             default_key = default_opt.split(b"=")[0]
-            # Check if any existing option starts with this key
             if not any(opt.startswith(default_key) for opt in options):
                 options.append(default_opt)
 
-        # We don't add arch flag here because it will be added directly in the compile method
         return options
 
     def _create_template_string(self, template_vals):
@@ -381,7 +352,6 @@ PYBIND11_MODULE(cuda_example, m) {{
                 continue
             val = template_vals[key]
 
-            # Verbose error message for unsupported types
             if type(val) not in self._template_conversions:
                 type_groups = {"Python built-in types": [], "catapult.types": []}
 
