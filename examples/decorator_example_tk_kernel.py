@@ -10,7 +10,9 @@ import catapult
 def testing(x):
     output = torch.zeros_like(x)
 
-    testing.kernel(x, output)
+    b, c, h, w = x.shape
+
+    testing.kernel[(b, c, h), (w, 1, 1)](x, output)
     return output
 
 
