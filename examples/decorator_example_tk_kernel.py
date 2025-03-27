@@ -10,7 +10,7 @@ import catapult
 def testing(x):
     output = torch.zeros_like(x)
 
-    testing.kernel[(32, 1, 1), (128, 1, 1)](x, output)
+    testing.kernel(x, output)
     return output
 
 
@@ -22,7 +22,7 @@ N = NUM_THREADS * NUM_BLOCKS
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if device.type != "cuda":
     raise RuntimeError("CUDA device not available.")
-x = torch.ones(16, 1024, 32, 64, device=device, dtype=torch.float32)
+x = torch.ones(1, 1, 1, 64, device=device, dtype=torch.float32)
 
 out = testing(x)
 print(out)

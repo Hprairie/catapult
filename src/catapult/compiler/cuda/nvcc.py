@@ -24,7 +24,6 @@ class _NVCCProgram(Compiler):
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
         nvcc_path: Optional[str] = None,
-        prebuilt_script: Optional[str] = None,
     ):
         if not isinstance(source, bytes):
             raise CompileException(
@@ -68,7 +67,6 @@ class _NVCCProgram(Compiler):
         self.num_headers = num_headers
 
         self.nvcc_path = nvcc_path or self._find_nvcc()
-        self.prebuilt_script = prebuilt_script
 
         self.cuDevice = checkCudaErrors(cuda.cuDeviceGet(device))
         self.major = checkCudaErrors(
@@ -146,7 +144,7 @@ class _NVCCProgram(Compiler):
 #include "pyutils/pyutils.cuh"
 
 PYBIND11_MODULE(cuda_example, m) {{ 
-    kittens::py::bind_kernel<{kernel_name}, {kernel_params}>(m, "{kernel_name}"); 
+    kittens::py::bind_kernel_all<{kernel_name}, {kernel_params}>(m, "{kernel_name}"); 
 }}
 """
 
@@ -232,24 +230,7 @@ PYBIND11_MODULE(cuda_example, m) {{
                     cu_file_path,
                 ]
             )
-
-            # Use prebuilt script if provided
-            if self.prebuilt_script:
-                # Replace placeholders in the script
-                script_content = self.prebuilt_script
-                script_content = script_content.replace("{input_file}", cu_file_path)
-                script_content = script_content.replace("{output_file}", output_file)
-                script_content = script_content.replace("{arch}", f"sm_{self.major}{self.minor}")
-
-                script_path = os.path.join(temp_dir, "compile_script.sh")
-                with open(script_path, "w") as f:
-                    f.write(script_content)
-
-                os.chmod(script_path, 0o755)
-
-                process = subprocess.Popen([script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            else:
-                process = subprocess.Popen(compile_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(compile_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             stdout, stderr = process.communicate()
 
@@ -281,9 +262,7 @@ PYBIND11_MODULE(cuda_example, m) {{
         options = list(compile_options) if compile_options else []
         options = [opt if isinstance(opt, bytes) else opt.encode("ascii") for opt in options]
 
-        # Add default options if their keys aren't already present
         default_opts = [b"--fmad=false", b"-I/home/prairie/Projects/ThunderKittens/include"]
-        # Add pybind11 include path if needed
 
         try:
             import pybind11
@@ -402,10 +381,10 @@ PYBIND11_MODULE(cuda_example, m) {{
             module = importlib.util.module_from_spec(spec)
             loader.exec_module(module)
 
-            kernel_func = getattr(module, self.name)
+            setattr(module, "CATAPULT_NAME", self.name)
             self.compiled_program = module
 
-            return kernel_func, self.mapping
+            return module, self.mapping
 
         except Exception as e:
             raise CompileException(f"Error loading compiled kernel: {self.name}", f"Failed to load kernel: {str(e)}")

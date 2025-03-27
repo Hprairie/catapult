@@ -24,6 +24,8 @@ class KernelInterface(Generic[T]):
                 "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
                 "         |      |_block dims   |_thread dims\n"
                 "         |_kernel object"
+                "To use Python interface to launch please follow the example above. To default to the C++ interface please call the kernel directly.\n"
+                "Exampele: kernel(*args, **kwargs)\n\n"
             )
 
         if not isinstance(grid, tuple) or len(grid) != 2 or len(grid[0]) != 3 or len(grid[1]) != 3:
@@ -63,6 +65,7 @@ class JITKernel(KernelInterface[T]):
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
         include: Optional[List[str]] = None,
+        disable_stream: Optional[bool] = None,
     ) -> None:
         self.templated = template_params is not None
         self.driver = get_driver()
@@ -80,6 +83,7 @@ class JITKernel(KernelInterface[T]):
             template_params=template_params,
         )
         self.cache = defaultdict(dict)
+        self.disable_stream = disable_stream
 
     def _get_signature(self, *args, **kwargs):
         """
@@ -99,21 +103,14 @@ class JITKernel(KernelInterface[T]):
         return constexpr_vals
 
     def __call__(self, *args, **kwargs):
-        raise KernelLaunchError(
-            "JITKernel object can not be called directly and instead should be launched using a grid configuration.\n"
-            "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
-            "         |      |_block dims   |_thread dims\n"
-            "         |_kernel object"
-            "\n"
-            "If you are seeing this error, it means you are trying to call the kernel directly without a grid configuration."
-        )
+        return self.run(*args, grid=None, thread_grid=None, warmup=None, **kwargs)
 
     def run(
         self,
         *args,
         grid: Optional[List[int]],
         thread_grid: Optional[List[int]],
-        warmup: Optional[List[int]] = None,
+        warmup: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -134,6 +131,10 @@ class JITKernel(KernelInterface[T]):
             None: The kernel execution is asynchronous.
         """
         device = self.driver.framework.get_device()
+
+        # Add disable_stream to kwargs if it's set
+        if self.disable_stream:
+            kwargs["disable_stream"] = True
 
         constexpr_vals = self._get_signature(*args, **kwargs)
         key = str(constexpr_vals)
@@ -188,6 +189,7 @@ def jit(
     template_params: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
+    disable_stream: Optional[bool] = None,
 ) -> Union[KernelFunction[R], Callable[[Callable[..., R]], KernelFunction[R]]]:
     """
     JIT decorator for defining CUDA kernels with optional template and compile parameters.
@@ -222,6 +224,7 @@ def jit(
             debug=debug,
             template_params=template_params,
             include=include,
+            disable_stream=disable_stream,
         )
 
         @functools.wraps(func)

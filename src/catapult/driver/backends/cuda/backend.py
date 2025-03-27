@@ -72,6 +72,38 @@ class CUDABackend(Backend):
             **kwargs: Additional arguments
         """
         try:
-            kernel(*arg_values)
+            stream = framework.get_stream() if hasattr(framework, "get_stream") else None
+            use_stream = stream is not None and not kwargs.get("disable_stream", False)
+            use_grid = grid is not None and thread_grid is not None
+
+            if hasattr(kernel, "CATAPULT_NAME"):
+                base_name = kernel.CATAPULT_NAME
+                func_name = base_name
+            else:
+                raise RuntimeError("Kernel Object Corrupted - Missing CATAPULT_NAME")
+
+            if use_grid and use_stream:
+                func_name += "_stream_grid"
+                arg_values = arg_values + (
+                    grid[0],
+                    grid[1],
+                    grid[2],
+                    thread_grid[0],
+                    thread_grid[1],
+                    thread_grid[2],
+                    stream,
+                )
+            elif use_grid:
+                func_name += "_grid"
+                arg_values = arg_values + (grid[0], grid[1], grid[2], thread_grid[0], thread_grid[1], thread_grid[2])
+            elif use_stream:
+                func_name += "_stream"
+                arg_values = arg_values + (stream,)
+
+            if hasattr(kernel, func_name):
+                kernel_func = getattr(kernel, func_name)
+                kernel_func(*arg_values)
+            else:
+                raise RuntimeError(f"Kernel function '{func_name}' not found in kernel object.")
         except Exception as e:
-            raise RuntimeError(f"Error launching NVCC-compiled kernel: {str(e)}")
+            raise RuntimeError(f"Error launching kernel: {str(e)}")
