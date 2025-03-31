@@ -4,12 +4,11 @@ import catapult
 
 @catapult.jit(kernel_path="cu/matmul.cu", kernel_name="matmul_kernel")
 def matmul_kernel(blk, N, A, B, C):
-    threads_per_block = min(32, N)  # Typically, 32 is used for matrix multiplication
+    threads_per_block = 32
     blocks_per_grid = (N + threads_per_block - 1) // threads_per_block
 
-    print(f"Launching Matrix Multiply kernel: grid=({blocks_per_grid}, {blocks_per_grid}, 1), block=({threads_per_block}, {threads_per_block}, 1)")
-
-    matmul_kernel.kernel[(blocks_per_grid, blocks_per_grid, 1), (threads_per_block, threads_per_block, 1)](A, B, C, N)
+    print(f"Launching Matrix Multiply kernel: grid=({blocks_per_grid}, {blocks_per_grid}), block=({threads_per_block}, {threads_per_block})")
+    matmul_kernel.kernel[(blocks_per_grid, blocks_per_grid), (threads_per_block, threads_per_block)](A, B, C, N)
 
 @pytest.mark.parametrize("N", [32, 64, 128, 256, 512, 1024])
 def test_matmul(cuda_device, N):
