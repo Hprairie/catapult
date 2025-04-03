@@ -23,6 +23,7 @@ class _NVCCProgram(Compiler):
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
+        template_kernel: Optional[List[str]] = None,
         nvcc_path: Optional[str] = None,
     ):
         if not isinstance(source, bytes):
@@ -62,9 +63,22 @@ class _NVCCProgram(Compiler):
         self.mapping = None
         self.named_expression = {}
         self.template_params = template_params
+        self.template_kernel = template_kernel
         self.headers = headers
         self.include_names = include_names
         self.num_headers = num_headers
+        
+        # Special kernel kwargs that should not be included in templating
+        self._special_kernel_kwargs = {"disable_stream"}
+        
+        # Template conversion dictionary (maps Python type to C++ template syntax)
+        self._template_conversions = {
+            bool: lambda x: "true" if x else "false",
+            int: lambda x: str(x),
+            float: lambda x: str(x) + "f",
+            str: lambda x: f'"{x}"',
+            dtype: lambda x: x.name,
+        }
 
         self.nvcc_path = nvcc_path or self._find_nvcc()
 
@@ -168,9 +182,45 @@ PYBIND11_MODULE(cuda_example, m) {{
 
         try:
             kernel_name = self.name
+            kernel_param = self.kernel_param.decode("UTF-8")
+            extra_includes = []
+            
+            # Extract template parameters for both kernel and parameter
+            kernel_template_args = []
+            param_template_args = []
+            
+            # Template kernel name if template_kernel is specified
+            if self.template_kernel and len(template_vals):
+                templated_kernel, kernel_includes = self._create_template_string(
+                    template_vals, self.template_kernel, kernel_name
+                )
+                kernel_name = templated_kernel
+                extra_includes.extend(kernel_includes)
+                
+                # Store the actual template arguments for use with parameter templating if needed
+                for key in self.template_kernel:
+                    if key in template_vals and key not in self._special_kernel_kwargs:
+                        kernel_template_args.append(self._template_conversions[type(template_vals[key])](template_vals[key]))
+                
+            # Template kernel parameter if template_params is specified
             if self.template_params and len(template_vals):
-                named_expression, extra_includes = self._create_template_string(template_vals)
-                kernel_name = named_expression
+                templated_param, param_includes = self._create_template_string(
+                    template_vals, self.template_params, kernel_param
+                )
+                kernel_param = templated_param
+                extra_includes.extend(param_includes)
+                
+                # Store the template arguments
+                for key in self.template_params:
+                    if key in template_vals and key not in self._special_kernel_kwargs:
+                        param_template_args.append(self._template_conversions[type(template_vals[key])](template_vals[key]))
+            
+            # If no explicit parameter template but kernel has template, use same template parameters by default
+            # This handles the common case where the struct and kernel take the same template parameters
+            elif not self.template_params and self.template_kernel and len(kernel_template_args) > 0:
+                # Check if the kernel parameter is a templatable type (not primitive or void*)
+                if kernel_param not in ["void*", "int", "float", "double", "char*", "bool"]:
+                    kernel_param = f"{kernel_param}<{', '.join(kernel_template_args)}>"
 
             if self.num_headers and self.headers and self.include_names:
                 for i in range(self.num_headers):
@@ -185,7 +235,7 @@ PYBIND11_MODULE(cuda_example, m) {{
             cu_file_path = os.path.join(temp_dir, "kernel.cu")
             with open(cu_file_path, "w") as f:
                 f.write(self.source)
-                f.write(self._create_pybind_module(kernel_name, self.kernel_param.decode("UTF-8")))
+                f.write(self._create_pybind_module(kernel_name, kernel_param))
             output_file = os.path.join(temp_dir, "libcuda_example.so")
 
             arch_flag = f"--gpu-architecture=sm_{self.major}{self.minor}"
@@ -195,7 +245,7 @@ PYBIND11_MODULE(cuda_example, m) {{
                     compile_args.append(opt.decode("ascii"))
                 else:
                     compile_args.append(opt)
-
+            
             compile_args.extend(
                 [
                     "--shared",
@@ -230,6 +280,7 @@ PYBIND11_MODULE(cuda_example, m) {{
                     cu_file_path,
                 ]
             )
+            # import pdb; pdb.set_trace()
             process = subprocess.Popen(compile_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             stdout, stderr = process.communicate()
@@ -242,7 +293,8 @@ PYBIND11_MODULE(cuda_example, m) {{
 
             self.shared_lib_path = output_file
 
-            if self.template_params and len(template_vals):
+            # Update name with templated version if needed
+            if self.template_kernel and len(template_vals):
                 self.name = kernel_name
                 self.name_bytes = kernel_name.encode("UTF-8")
 
@@ -303,32 +355,40 @@ PYBIND11_MODULE(cuda_example, m) {{
 
         return options
 
-    def _create_template_string(self, template_vals):
+    def _create_template_string(self, template_vals, template_param_names, base_value):
         """
-        Create template specialization string for the kernel.
+        Create template specialization string for kernel or parameters.
 
         Args:
             template_vals: Dictionary of template parameter values
+            template_param_names: List of template parameter names to use
+            base_value: Base value to apply templates to (kernel name or parameter)
 
         Returns:
-            Template string and any extra includes needed
+            tuple: (templated string, list of extra includes needed)
         """
-        if self.template_params is None:
+        if template_param_names is None:
             raise ValueError(
                 "Template parameters are required but none were provided in the @catapult.jit decorator.\n"
                 "Example usage:\n"
                 "@catapult.jit(\n"
                 "    kernel_path='example_template.cuh',\n"
                 "    kernel_name='example_kernel_name',\n"
-                "    template_params=['N']  # List the template parameters in order\n"
+                "    template_params=['N'],  # For kernel parameter templating\n"
+                "    template_kernel=['T']   # For kernel name templating\n"
                 ")\n"
                 f"template_params is None but Received kwargs: {list(template_vals.keys())}"
             )
         template = []
         extra_includes = []
-        for key in self.template_params:
+        
+        for key in template_param_names:
             if key in self._special_kernel_kwargs:
                 continue
+                
+            if key not in template_vals:
+                raise ValueError(f"Template parameter '{key}' was specified but not provided in the kernel call")
+                
             val = template_vals[key]
 
             if type(val) not in self._template_conversions:
@@ -354,7 +414,7 @@ PYBIND11_MODULE(cuda_example, m) {{
             if isinstance(val, dtype) and val.include_files is not None:
                 extra_includes += val.include_files
 
-        return f"{self.name}<{', '.join(template)}>", extra_includes
+        return f"{base_value}<{', '.join(template)}>", extra_includes
 
     def get_kernel(self):
         """

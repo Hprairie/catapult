@@ -50,6 +50,7 @@ class JITKernel(KernelInterface[T]):
 
     Attributes:
         templated (bool): Indicates if the kernel uses template parameters.
+        template_kernel (bool): Indicates if the kernel name uses template parameters.
         driver: Backend driver instance for GPU operations.
         compiler: Compiler instance for the specific kernel.
         cache (defaultdict): Device-specific cache of compiled kernels.
@@ -64,10 +65,12 @@ class JITKernel(KernelInterface[T]):
         compile_options: Optional[List[str]] = None,
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
+        template_kernel: Optional[List[str]] = None,
         include: Optional[List[str]] = None,
         disable_stream: Optional[bool] = None,
     ) -> None:
         self.templated = template_params is not None
+        self.template_kernel = template_kernel is not None
         self.driver = get_driver()
 
         # TODO: Add debugging option
@@ -81,6 +84,7 @@ class JITKernel(KernelInterface[T]):
             compile_options=compile_options,
             include_names=include,
             template_params=template_params,
+            template_kernel=template_kernel,
         )
         self.cache = defaultdict(dict)
         self.disable_stream = disable_stream
@@ -96,11 +100,20 @@ class JITKernel(KernelInterface[T]):
         Returns:
             list: List of template parameter values used for cache key generation.
         """
-        constexpr_vals = []
-        for key, val in kwargs.items():
-            if key in self.compiler.template_params:
-                constexpr_vals.append(val)
-        return constexpr_vals
+        param_vals = []
+        kernel_vals = []
+        
+        if hasattr(self.compiler, "template_params") and self.compiler.template_params:
+            for key in self.compiler.template_params:
+                if key in kwargs:
+                    param_vals.append(kwargs[key])
+                    
+        if hasattr(self.compiler, "template_kernel") and self.compiler.template_kernel:
+            for key in self.compiler.template_kernel:
+                if key in kwargs:
+                    kernel_vals.append(kwargs[key])
+                    
+        return (tuple(param_vals), tuple(kernel_vals))
 
     def __call__(self, *args, **kwargs):
         return self.run(*args, grid=None, thread_grid=None, warmup=None, **kwargs)
@@ -136,8 +149,8 @@ class JITKernel(KernelInterface[T]):
         if self.disable_stream:
             kwargs["disable_stream"] = True
 
-        constexpr_vals = self._get_signature(*args, **kwargs)
-        key = str(constexpr_vals)
+        signature = self._get_signature(*args, **kwargs)
+        key = str(signature)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
@@ -175,6 +188,7 @@ def jit(
     kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
     template_params: Optional[List[str]] = None,
+    template_kernel: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Callable[[Callable[..., R]], KernelFunction[R]]: ...
@@ -187,6 +201,7 @@ def jit(
     kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
     template_params: Optional[List[str]] = None,
+    template_kernel: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
     disable_stream: Optional[bool] = None,
@@ -198,10 +213,13 @@ def jit(
     Args:
         kernel_path (str): Path to the CUDA kernel file.
         kernel_name (str): Name of the kernel function in the file.
+        kernel_param (str, optional): Parameter type for the kernel.
         compile_options (List[str], optional): Additional options for NVRTC compiler.
-        template_params (List[str], optional): Template parameters for the kernel.
+        template_params (List[str], optional): Template parameters for the kernel parameter.
+        template_kernel (List[str], optional): Template parameters for the kernel name.
         include (List[str], optional): Additional include paths for the kernel.
         debug (bool, optional): Enables debug mode for the kernel.
+        disable_stream (bool, optional): Disables stream usage for kernel execution.
 
     Returns:
         Callable[[Callable[..., R]], KernelFunction[R]]: The decorated function.
@@ -223,6 +241,7 @@ def jit(
             compile_options=compile_options,
             debug=debug,
             template_params=template_params,
+            template_kernel=template_kernel,
             include=include,
             disable_stream=disable_stream,
         )

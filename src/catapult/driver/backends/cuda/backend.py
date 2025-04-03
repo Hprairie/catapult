@@ -30,6 +30,7 @@ class CUDABackend(Backend):
         headers: Optional[Tuple[bytes] | List[bytes]] = None,
         include_names: Optional[Tuple[bytes] | List[bytes]] = None,
         template_params: Optional[List[str]] = None,
+        template_kernel: Optional[List[str]] = None,
     ) -> Union[_NVCCProgram, _NVRTCProgram]:
 
         if isinstance(source, str) and os.path.isfile(os.path.join(calling_dir, source)):
@@ -52,6 +53,7 @@ class CUDABackend(Backend):
             headers=headers,
             include_names=include_names,
             template_params=template_params,
+            template_kernel=template_kernel,
         )
 
     @staticmethod

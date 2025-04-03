@@ -6,12 +6,14 @@ import catapult
     kernel_path="example_templated_tk_kernel.cu",
     kernel_name="copy_kernel",
     kernel_param="globals",
-    template_params=["N"],
+    template_kernel=["N"],  # Template the kernel name (was previously template_params)
+    # template_params=[]   # Use this to template the kernel parameter if needed
 )
 def testing(x):
     output = torch.zeros_like(x)
 
-    testing.kernel[(32, 1, 1), (128, 1, 1)](x, output, N=True)
+    b, c, h, w = x.shape
+    testing.kernel[(b, c, h), (w, 1, 1)](x, output, N=True)
     return output
 
 
