@@ -2,3 +2,4 @@ sphinx # python doc engine
 breathe # ext to sphinx to compile doxygen style docstrings
 myst-parser # format md
 sphinxcontrib-napoleon # for google/numpy style docstrings
+graphviz 

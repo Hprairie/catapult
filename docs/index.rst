@@ -17,9 +17,11 @@ documentation for details.
    :glob:
 
    source/*
+   cpp_docs
 
 ..
 ..   Doxygen-generated documentation:
 ..
 .. doxygenindex::
-.. :project: catapult  # Link it to the Doxygen project name
+   :project: catapult  
+   

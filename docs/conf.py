@@ -43,5 +43,5 @@ html_theme = 'alabaster'
 html_static_path = ['_static']
 
 ##Breathe configuration
-#breathe_projects = {"catapult": "_build/doxygen/xml"}
-#breathe_default_project = "catapult"
+breathe_projects = {"catapult": "_build/doxygen/xml"}
+breathe_default_project = "catapult"

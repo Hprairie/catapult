@@ -16,3 +16,4 @@ just append the name of the rst at the bottom. E.g -->
 5. Build using `make clean` then `make html` to build htmls. Run `open _build/html/index.html` to see your docs!
 
 
+# Breathe Instruction   
