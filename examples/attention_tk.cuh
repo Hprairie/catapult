@@ -21,8 +21,8 @@ template<int D> struct globals {
     global_layout<D> Qg, Kg, Vg, Og;
 
     dim3 grid() const {
-        int grid_x = (Qg.depth() + qkvo_tile<D>::rows * NUM_WORKERS - 1) / (qkvo_tile<D>::rows * NUM_WORKERS);
-        return dim3(grid_x, Qg.height(), Qg.batch());
+        int grid_x = (Qg.rows() + qkvo_tile<D>::rows * NUM_WORKERS - 1) / (qkvo_tile<D>::rows * NUM_WORKERS);
+        return dim3(grid_x, Qg.depth(), Qg.batch());
     }
     dim3 block() const {
          return dim3(32 * NUM_WORKERS, 1, 1);

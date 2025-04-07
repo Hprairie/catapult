@@ -4,7 +4,6 @@
 using namespace kittens;
 
 using my_layout = gl<float, -1, -1, -1, 64, st_fl<64,64>>;
-template<bool PrintDebug>
 struct globals {
     my_layout in, out;
     dim3 grid()  { return dim3(in.batch(), in.depth(), in.rows()); }
@@ -15,7 +14,7 @@ struct globals {
 };
 
 template<bool PrintDebug>
-__global__ void copy_kernel(const __grid_constant__ globals<PrintDebug> g) {
+__global__ void copy_kernel(const __grid_constant__ globals g) {
     if(threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0){
         if constexpr (PrintDebug) printf("Hello, from inside the kernel!\n");
     }

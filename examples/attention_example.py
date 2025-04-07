@@ -9,6 +9,7 @@ D = 64
     kernel_path="attention_tk.cuh",
     kernel_name="attend_ker",
     kernel_param="globals",
+    template_kernel=["D"],
     template_params=["D"],
 )
 def attend(Qg, Kg, Vg):
@@ -20,8 +21,8 @@ def attend(Qg, Kg, Vg):
 if __name__ == "__main__":
     device = torch.device("cuda")
     # Define dimensions: (batch, sequence length, heads, feature dimension)
-    B = 1
-    seq = 768  # ATTN_N
+    B = 16
+    seq = 1024  # ATTN_N
     H = 16  # ATTN_H
     D = 64
 
