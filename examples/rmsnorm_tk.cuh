@@ -62,12 +62,12 @@ template<int _d_model, float dropout_val> struct norm_globals {
     using tile_reg_1xD  = rt_bf<1, d_model>;
 
     // global descriptors
-    using x_gl            = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
-    using residual_gl     = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
-    using o_gl            = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
-    using o_resid_gl      = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
-    using norm_weight_gl  = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
-    using norm_bias_gl    = gl<bf16, -1, -1, -1, -1, vec_smem_1xD>;
+    using x_gl            = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
+    using residual_gl     = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
+    using o_gl            = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
+    using o_resid_gl      = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
+    using norm_weight_gl  = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
+    using norm_bias_gl    = gl<bf16, -1, -1, -1, d_model, vec_smem_1xD>;
 
     // global pointers
     x_gl x;
@@ -104,8 +104,7 @@ template<int _d_model, float dropout_val> struct norm_globals {
 
 template<int D, float dropout_val>
 __global__ __launch_bounds__(NUM_THREADS, 1)
-void layernorm_tk(const __grid_constant__ norm_globals<D, dropout_val> g){
-
+void rmsnorm_tk(const __grid_constant__ norm_globals<D, dropout_val> g){
     auto warpid = kittens::warpid();
     auto lane   = kittens::laneid();
 
@@ -132,7 +131,6 @@ void layernorm_tk(const __grid_constant__ norm_globals<D, dropout_val> g){
     }
  
     bf16 mean = __float2bfloat16(0.0f);
-    bf16 var  = __float2bfloat16(0.0f);      
 
     load_async(       x_s[warpid][tic], g.x,        {batch, 0, seq_start+warpid, 0});
     load_async(residual_s[warpid][tic], g.residual, {batch, 0, seq_start+warpid, 0});
@@ -156,16 +154,13 @@ void layernorm_tk(const __grid_constant__ norm_globals<D, dropout_val> g){
         store(g.o_resid, residual_s[warpid][tic], {batch, 0, seq_start+cur_idx, 0});
         __syncwarp();
 
-        sum(mean, residual_s[warpid][tic]);
-        mean = mean / __float2bfloat16(d_model);
-        sub(residual_s[warpid][tic], residual_s[warpid][tic], mean);  
         mul(x_s[warpid][tic], residual_s[warpid][tic], residual_s[warpid][tic]);
-        sum(var, x_s[warpid][tic]);
-        var = var / __float2bfloat16(d_model);
-        var = __float2bfloat16(sqrt(__bfloat162float(var + __float2bfloat16(1e-05f))));
 
+        sum(mean, x_s[warpid][tic]);
+        bf16 norm_factor = __float2bfloat16(sqrtf(__bfloat162float(mean) / d_model));
+        
         // compute norm
-        div(residual_s[warpid][tic], residual_s[warpid][tic], var);
+        div(residual_s[warpid][tic], residual_s[warpid][tic], norm_factor);
         mul(residual_s[warpid][tic], residual_s[warpid][tic], norm_weight_s); 
         add(residual_s[warpid][tic], residual_s[warpid][tic], norm_bias_s);
         __syncwarp();

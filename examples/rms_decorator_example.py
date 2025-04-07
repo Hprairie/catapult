@@ -2,8 +2,8 @@ import torch
 import catapult
 
 @catapult.jit(
-    kernel_path="layernorm_tk.cuh",
-    kernel_name="layernorm_tk",
+    kernel_path="rmsnorm_tk.cuh",
+    kernel_name="rmsnorm_tk",
     kernel_param="norm_globals",
     template_kernel=["D", "V"],
     template_params=["D", "V"],
@@ -27,7 +27,7 @@ def fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0
     # Check divisibility for alignment - assuming TILE_ROW_DIM is 16 for bf16
     TILE_ROW_DIM = 16  # This should match kittens::TILE_ROW_DIM<bf16>
     assert N % TILE_ROW_DIM == 0, f"Sequence length ({N}) must be divisible by {TILE_ROW_DIM}"
-    
+
     # Create output tensors
     o = torch.empty_like(x)
     o_resid = torch.empty_like(x)
@@ -46,13 +46,13 @@ def fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0
     )
     return o, o_resid
 
-def unfused_layernorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
-    # Torch implementation of LayerNorm
+def unfused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
+    # Torch implementation of RMSNorm
     x = x + residual
     o_resid = x
-    x_norm = x - torch.mean(x, dim=-1, keepdim=True)
-    x_norm = x_norm / (torch.std(x, dim=-1, keepdim=True) + 1e-6)
-    x = x_norm * norm_weight + norm_bias
+    norm = torch.mean(x ** 2, dim=-1, keepdim=True)
+    x = x / torch.sqrt(norm + 1e-6)
+    x = x * norm_weight + norm_bias
     return x, o_resid
 
 if __name__ == "__main__":
@@ -65,5 +65,5 @@ if __name__ == "__main__":
     norm_bias = torch.zeros(D, device=device, dtype=torch.bfloat16)
     o, o_resid = fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
     print("Outputs:", o, o_resid)
-    o_ref, o_resid_ref = unfused_layernorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
+    o_ref, o_resid_ref = unfused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
     print("Reference Outputs:", o_ref, o_resid_ref)
