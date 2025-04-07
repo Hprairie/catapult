@@ -5,17 +5,14 @@ import catapult
 @catapult.autotune(
     configs=[
         catapult.Config({
-            'N': 4096,  # Total elements
             'NUM_THREADS': 128,
             'NUM_BLOCKS': 32,
         }),
         catapult.Config({
-            'N': 4096,  # Total elements  
             'NUM_THREADS': 256,
             'NUM_BLOCKS': 16,
         }),
         catapult.Config({
-            'N': 4096,  # Total elements
             'NUM_THREADS': 64,
             'NUM_BLOCKS': 64,
         }),
@@ -41,13 +38,13 @@ a = 2.0
 x = torch.rand(N, device=device, dtype=torch.float32)
 y = torch.rand(N, device=device, dtype=torch.float32)
 
-out = testing(a, x, y)
+out = testing(a, x, y, N)
 expected = a * x + y
 print(out, expected)
 assert torch.allclose(out, expected)
 
 # Test with different N to trigger re-autotuning
-N = 8192
+N = 4096
 x = torch.rand(N, device=device, dtype=torch.float32)
 y = torch.rand(N, device=device, dtype=torch.float32)
-out = testing(a, x, y)  # Will trigger new autotuning
+out = testing(a, x, y, N)  # Will trigger new autotuning
