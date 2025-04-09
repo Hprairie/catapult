@@ -1,10 +1,6 @@
 import torch
 import catapult
 
-# We assume D = 64 (NUM_WORKERS = 4 as in the CUDA globals)
-D = 64
-
-
 @catapult.jit(
     kernel_path="attention.cuh",
     kernel_name="attend_ker",
@@ -12,7 +8,7 @@ D = 64
     template_kernel=["D"],
     template_params=["D"],
 )
-def attend(Qg, Kg, Vg):
+def attend(Qg, Kg, Vg, D):
     assert Qg.is_cuda and Kg.is_cuda and Vg.is_cuda, "All input tensors must be on a CUDA device"
     
     assert Qg.dim() == 4 and Kg.dim() == 4 and Vg.dim() == 4, \
@@ -60,7 +56,7 @@ if __name__ == "__main__":
     Kg = torch.ones(B, seq, H, D, device=device, dtype=torch.bfloat16)
     Vg = torch.ones(B, seq, H, D, device=device, dtype=torch.bfloat16)
 
-    Og = attend(Qg, Kg, Vg)
+    Og = attend(Qg, Kg, Vg, D=D)
     print("Output tensor Og:")
     print(Og)
     Og_ref = unfused_attend(Qg, Kg, Vg)
