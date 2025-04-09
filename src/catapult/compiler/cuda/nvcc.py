@@ -158,7 +158,7 @@ class _NVCCProgram(Compiler):
 #include "pyutils/pyutils.cuh"
 
 PYBIND11_MODULE(cuda_example, m) {{ 
-    kittens::py::bind_kernel_all<{kernel_name}, {kernel_params}>(m, "{kernel_name}"); 
+    kittens::py::bind_kernel_all<{kernel_name}, {kernel_params}>(m, "{self.name}"); 
 }}
 """
 
@@ -294,9 +294,9 @@ PYBIND11_MODULE(cuda_example, m) {{
             self.shared_lib_path = output_file
 
             # Update name with templated version if needed
-            if self.template_kernel and len(template_vals):
-                self.name = kernel_name
-                self.name_bytes = kernel_name.encode("UTF-8")
+            # if self.template_kernel and len(template_vals):
+            #     self.name = kernel_name
+            #     self.name_bytes = kernel_name.encode("UTF-8")
 
         except Exception as e:
             import shutil

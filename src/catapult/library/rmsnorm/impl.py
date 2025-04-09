@@ -2,7 +2,7 @@ import torch
 import catapult
 
 @catapult.jit(
-    kernel_path="rmsnorm_tk.cuh",
+    kernel_path="rmsnorm.cuh",
     kernel_name="rmsnorm_tk",
     kernel_param="norm_globals",
     template_kernel=["D", "V"],

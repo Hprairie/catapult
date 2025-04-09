@@ -2,7 +2,7 @@ import torch
 import catapult
 
 @catapult.jit(
-    kernel_path="layernorm_tk.cuh",
+    kernel_path="layernorm.cuh",
     kernel_name="layernorm_tk",
     kernel_param="norm_globals",
     template_kernel=["D", "V"],
