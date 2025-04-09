@@ -1,18 +1,17 @@
 import torch
 import catapult
 
-
 @catapult.jit(
     kernel_path="example_templated_tk_kernel.cu",
     kernel_name="copy_kernel",
     kernel_param="globals",
-    template_kernel=["N"],  # Template the kernel name (was previously template_params)
-    # template_params=[]   # Use this to template the kernel parameter if needed
+    template_kernel=["N"],
+    # template_params=[] 
 )
 def testing(x):
     output = torch.zeros_like(x)
-
     b, c, h, w = x.shape
+
     testing.kernel[(b, c, h), (w, 1, 1)](x, output, N=True)
     return output
 
