@@ -4,12 +4,19 @@ import catapult.library as lib
 
 DEVICE = torch.device("cuda")
 
-def unfused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
+def eager_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
     x = x + residual
     o_resid = x
     x_norm = torch.mean(x ** 2, dim=-1, keepdim=True)
     x_norm = x_norm / (torch.sqrt(x_norm) + 1e-6)
     x = x_norm * norm_weight + norm_bias
+    return x, o_resid
+
+def torch_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
+    x = x + residual
+    o_resid = x
+    x = torch.nn.functional.rms_norm(x, (D,), norm_weight)
+    x = x + norm_bias[None, None, :]
     return x, o_resid
 
 
@@ -20,12 +27,13 @@ fused_rmsnorm = lib.functions["rmsnorm"]
         x_names=['D'],  # argument names to use as an x-axis for the plot
         x_vals=[32 * i for i in range(1, 30)],  # different possible values for `x_name`
         line_arg='provider',  # argument name whose value corresponds to a different line in the plot
-        line_vals=['catapult', 'torch'],  # possible values for `line_arg``
+        line_vals=['catapult', 'torch', 'eager'],  # possible values for `line_arg``
         line_names=[
             "Catapult",
             "Torch",
+            "Eager"
         ],  # label name for the lines
-        styles=[('blue', '-'), ('green', '-')],  # line styles
+        styles=[('blue', '-'), ('green', '-'), ('red', '-')],  # line styles
         ylabel="ms",  # label name for the y-axis
         plot_name="rmsnorm-performance",  # name for the plot. Used also as a file name for saving the plot.
         args={'B': 16, 'N': 1024},  # values for function arguments not in `x_names` and `y_name`
@@ -37,8 +45,10 @@ def benchmark(B, N, D, provider):
     norm_bias = torch.zeros(D, device=DEVICE, dtype=torch.bfloat16)
     stream = getattr(torch, DEVICE.type).Stream()
     getattr(torch, DEVICE.type).set_stream(stream)
+    if provider == 'eager':
+        ms = triton.testing.do_bench(lambda: eager_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D), return_mode='median', warmup=100, rep=500)
     if provider == 'torch':
-        ms = triton.testing.do_bench(lambda: unfused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D), return_mode='median', warmup=100, rep=500)
+        ms = triton.testing.do_bench(lambda: torch_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D), return_mode='median', warmup=100, rep=500)
     if provider == 'catapult':
         ms = triton.testing.do_bench(lambda: fused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D), return_mode='median', warmup=100, rep=500)
     gbps = lambda ms: 2 * x.numel() * x.element_size() * 1e-9 / (ms * 1e-3)

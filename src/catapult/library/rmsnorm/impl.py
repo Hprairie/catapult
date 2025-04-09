@@ -8,7 +8,7 @@ import catapult
     template_kernel=["D", "V"],
     template_params=["D", "V"],
 )
-def fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
+def fused_rmsnorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0):
     assert x.dim() == 3, "Input x must be 3-dimensional (B,N,D)"
     assert residual.dim() == 3, "Input residual must be 3-dimensional (B,N,D)"
     assert norm_weight.dim() == 1, "Norm weight must be 1-dimensional (D)"
@@ -41,7 +41,7 @@ def fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0
     o_resid = o_resid[:, None, :, :]
     
     # Launch the kernel
-    fused_layernorm_tk.kernel(
+    fused_rmsnorm_tk.kernel(
         x, residual, o, o_resid, norm_weight, norm_bias, V=dropout_p, D=D
     )
     return o, o_resid
@@ -63,9 +63,9 @@ if __name__ == "__main__":
     residual = torch.ones_like(x)
     norm_weight = torch.ones(D, device=device, dtype=torch.bfloat16)
     norm_bias = torch.zeros(D, device=device, dtype=torch.bfloat16)
-    o, o_resid = fused_layernorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
+    o, o_resid = fused_rmsnorm_tk(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
     print("Outputs:", o, o_resid)
     o_ref, o_resid_ref = unfused_rmsnorm(x, residual, norm_weight, norm_bias, B, N, D, dropout_p=0.0)
     print("Reference Outputs:", o_ref, o_resid_ref)
 
-func = fused_layernorm_tk
+func = fused_rmsnorm_tk
