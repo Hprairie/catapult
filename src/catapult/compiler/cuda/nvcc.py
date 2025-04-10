@@ -68,10 +68,8 @@ class _NVCCProgram(Compiler):
         self.include_names = include_names
         self.num_headers = num_headers
         
-        # Special kernel kwargs that should not be included in templating
         self._special_kernel_kwargs = {"disable_stream"}
         
-        # Template conversion dictionary (maps Python type to C++ template syntax)
         self._template_conversions = {
             bool: lambda x: "true" if x else "false",
             int: lambda x: str(x),
@@ -190,38 +188,29 @@ PYBIND11_MODULE(cuda_example, m) {{
             param_template_args = []
             
             # Template kernel name if template_kernel is specified
-            if self.template_kernel and len(template_vals):
+            if self.template_kernel is not None and (len(self.template_kernel) > 0 and len(template_vals)):
                 templated_kernel, kernel_includes = self._create_template_string(
                     template_vals, self.template_kernel, kernel_name
                 )
                 kernel_name = templated_kernel
                 extra_includes.extend(kernel_includes)
                 
-                # Store the actual template arguments for use with parameter templating if needed
                 for key in self.template_kernel:
                     if key in template_vals and key not in self._special_kernel_kwargs:
                         kernel_template_args.append(self._template_conversions[type(template_vals[key])](template_vals[key]))
                 
             # Template kernel parameter if template_params is specified
-            if self.template_params and len(template_vals):
+            if self.template_params is not None and (len(self.template_params) > 0 and len(template_vals)):
                 templated_param, param_includes = self._create_template_string(
                     template_vals, self.template_params, kernel_param
                 )
                 kernel_param = templated_param
                 extra_includes.extend(param_includes)
                 
-                # Store the template arguments
                 for key in self.template_params:
                     if key in template_vals and key not in self._special_kernel_kwargs:
                         param_template_args.append(self._template_conversions[type(template_vals[key])](template_vals[key]))
             
-            # If no explicit parameter template but kernel has template, use same template parameters by default
-            # This handles the common case where the struct and kernel take the same template parameters
-            elif not self.template_params and self.template_kernel and len(kernel_template_args) > 0:
-                # Check if the kernel parameter is a templatable type (not primitive or void*)
-                if kernel_param not in ["void*", "int", "float", "double", "char*", "bool"]:
-                    kernel_param = f"{kernel_param}<{', '.join(kernel_template_args)}>"
-
             if self.num_headers and self.headers and self.include_names:
                 for i in range(self.num_headers):
                     header_content = self.headers[i]
@@ -280,7 +269,6 @@ PYBIND11_MODULE(cuda_example, m) {{
                     cu_file_path,
                 ]
             )
-            # import pdb; pdb.set_trace()
             process = subprocess.Popen(compile_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             stdout, stderr = process.communicate()
@@ -292,11 +280,6 @@ PYBIND11_MODULE(cuda_example, m) {{
                 )
 
             self.shared_lib_path = output_file
-
-            # Update name with templated version if needed
-            # if self.template_kernel and len(template_vals):
-            #     self.name = kernel_name
-            #     self.name_bytes = kernel_name.encode("UTF-8")
 
         except Exception as e:
             import shutil
