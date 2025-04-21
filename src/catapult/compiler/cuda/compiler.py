@@ -97,28 +97,20 @@ class _NVRTCProgram(Compiler):
             named_expression, extra_includes = self._create_template_string(template_vals)
             named_expression = bytes(named_expression, "utf-8")
             checkCudaErrors(nvrtc.nvrtcAddNameExpression(self.program, named_expression), self.program)
-        checkCudaErrors(nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options), self.program)
+        checkCudaErrors(
+            nvrtc.nvrtcCompileProgram(self.program, len(self.compile_options), self.compile_options), self.program
+        )
         mapping = None
         if named_expression:
             # TODO: Check if this is a good way of doing this
             self.name_bytes = checkCudaErrors(nvrtc.nvrtcGetLoweredName(self.program, named_expression), self.program)
 
-        if self.method == "cubin":
-            # TODO: Check if this works
-            raise NotImplementedError("CUBIN NOT ALLOWED.")
-            return checkCudaErrors(nvrtc.nvrtcGetCUBIN(self.program)), mapping
-        elif self.method == "ptx":
-            ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program), self.program)
-            ptx = b" " * ptx_size
-            checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx), self.program)
-            self.compiled_program = ptx
-            self.mapping = mapping
-            return
-        else:
-            raise CompileException(
-                f"Error instantiating kernel: {self.name}",
-                f"Unknown compilation method: {self.method}",
-            )
+        ptx_size: int = checkCudaErrors(nvrtc.nvrtcGetPTXSize(self.program), self.program)
+        ptx = b" " * ptx_size
+        checkCudaErrors(nvrtc.nvrtcGetPTX(self.program, ptx), self.program)
+        self.compiled_program = ptx
+        self.mapping = mapping
+        return
 
     def _get_options(self, compile_options):
         """
@@ -150,7 +142,9 @@ class _NVRTCProgram(Compiler):
             options.append(f"--gpu-architecture={arch_spec}".encode("ascii"))
 
         # Add default options if their keys aren't already present
-        default_opts = [b"--fmad=false"]
+        default_opts = [
+            b"--fmad=false",
+        ]
         for default_opt in default_opts:
             default_key = default_opt.split(b"=")[0]
             # Check if any existing option starts with this key
@@ -180,24 +174,24 @@ class _NVRTCProgram(Compiler):
 
             # Verbose error message for unsupported types
             if type(val) not in self._template_conversions:
-                type_groups = {
-                    'Python built-in types': [],
-                    'catapult.types': []
-                }
-                
+                type_groups = {"Python built-in types": [], "catapult.types": []}
+
                 for allowed_type in self._template_conversions.keys():
-                    if allowed_type.__module__ == 'builtins':
-                        type_groups['Python built-in types'].append(allowed_type.__name__)
+                    if allowed_type.__module__ == "builtins":
+                        type_groups["Python built-in types"].append(allowed_type.__name__)
                     else:
-                        type_groups['catapult.types'].append(allowed_type.__name__)
-                
-                error_msg = [f"Template parameter '{key}' has unsupported type '{type(val).__name__}'.", "Allowed types are:"]
+                        type_groups["catapult.types"].append(allowed_type.__name__)
+
+                error_msg = [
+                    f"Template parameter '{key}' has unsupported type '{type(val).__name__}'.",
+                    "Allowed types are:",
+                ]
                 for group_name, types in type_groups.items():
                     if types:
                         error_msg.append(f"  * {group_name}: {', '.join(sorted(types))}")
-                
-                raise ValueError('\n'.join(error_msg))
-            
+
+                raise ValueError("\n".join(error_msg))
+
             template.append(self._template_conversions[type(val)](val))
             if isinstance(val, dtype) and val.include_files is not None:
                 extra_includes += val.include_files

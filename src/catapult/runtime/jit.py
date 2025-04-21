@@ -24,6 +24,8 @@ class KernelInterface(Generic[T]):
                 "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
                 "         |      |_block dims   |_thread dims\n"
                 "         |_kernel object"
+                "To use Python interface to launch please follow the example above. To default to the C++ interface please call the kernel directly.\n"
+                "Exampele: kernel(*args, **kwargs)\n\n"
             )
 
         if not isinstance(grid, tuple) or len(grid) != 2 or len(grid[0]) != 3 or len(grid[1]) != 3:
@@ -48,6 +50,7 @@ class JITKernel(KernelInterface[T]):
 
     Attributes:
         templated (bool): Indicates if the kernel uses template parameters.
+        template_kernel (bool): Indicates if the kernel name uses template parameters.
         driver: Backend driver instance for GPU operations.
         compiler: Compiler instance for the specific kernel.
         cache (defaultdict): Device-specific cache of compiled kernels.
@@ -57,14 +60,17 @@ class JITKernel(KernelInterface[T]):
         self,
         kernel_path: str,
         kernel_name: str,
+        kernel_param: Optional[str],
         calling_dir: str,
         compile_options: Optional[List[str]] = None,
         debug: Optional[bool] = None,
         template_params: Optional[List[str]] = None,
+        template_kernel: Optional[List[str]] = None,
         include: Optional[List[str]] = None,
-        method: Optional[str] = None,
+        disable_stream: Optional[bool] = None,
     ) -> None:
         self.templated = template_params is not None
+        self.template_kernel = template_kernel is not None
         self.driver = get_driver()
 
         # TODO: Add debugging option
@@ -72,14 +78,16 @@ class JITKernel(KernelInterface[T]):
         self.compiler = self.driver.backend.get_compiler(
             source=kernel_path,
             name=kernel_name,
+            kernel_param=kernel_param,
             calling_dir=calling_dir,
             device=self.driver.framework.get_device(),
             compile_options=compile_options,
             include_names=include,
-            method=method,
             template_params=template_params,
+            template_kernel=template_kernel,
         )
         self.cache = defaultdict(dict)
+        self.disable_stream = disable_stream
 
     def _get_signature(self, *args, **kwargs):
         """
@@ -92,28 +100,30 @@ class JITKernel(KernelInterface[T]):
         Returns:
             list: List of template parameter values used for cache key generation.
         """
-        constexpr_vals = []
-        for key, val in kwargs.items():
-            if key in self.compiler.template_params:
-                constexpr_vals.append(val)
-        return constexpr_vals
+        param_vals = []
+        kernel_vals = []
+        
+        if hasattr(self.compiler, "template_params") and self.compiler.template_params:
+            for key in self.compiler.template_params:
+                if key in kwargs:
+                    param_vals.append(kwargs[key])
+                    
+        if hasattr(self.compiler, "template_kernel") and self.compiler.template_kernel:
+            for key in self.compiler.template_kernel:
+                if key in kwargs:
+                    kernel_vals.append(kwargs[key])
+                    
+        return (tuple(param_vals), tuple(kernel_vals))
 
     def __call__(self, *args, **kwargs):
-        raise KernelLaunchError(
-            "JITKernel object can not be called directly and instead should be launched using a grid configuration.\n"
-            "Example: kernel[(32, 1, 1), (256, 1, 1)](*args, **kwargs)\n"
-            "         |      |_block dims   |_thread dims\n"
-            "         |_kernel object"
-            "\n"
-            "If you are seeing this error, it means you are trying to call the kernel directly without a grid configuration."
-        )
+        return self.run(*args, grid=None, thread_grid=None, warmup=None, **kwargs)
 
     def run(
         self,
         *args,
         grid: Optional[List[int]],
         thread_grid: Optional[List[int]],
-        warmup: Optional[List[int]] = None,
+        warmup: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -135,8 +145,12 @@ class JITKernel(KernelInterface[T]):
         """
         device = self.driver.framework.get_device()
 
-        constexpr_vals = self._get_signature(*args, **kwargs)
-        key = str(constexpr_vals)
+        # Add disable_stream to kwargs if it's set
+        if self.disable_stream:
+            kwargs["disable_stream"] = True
+
+        signature = self._get_signature(*args, **kwargs)
+        key = str(signature)
         kernel = self.cache[device].get(key, None)
 
         if kernel is None:
@@ -171,9 +185,10 @@ def jit(
     *,
     kernel_path: str,
     kernel_name: str,
+    kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
-    method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
+    template_kernel: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
 ) -> Callable[[Callable[..., R]], KernelFunction[R]]: ...
@@ -183,11 +198,13 @@ def jit(
     fn: Optional[T] = None,
     kernel_path: Optional[str] = None,
     kernel_name: Optional[str] = None,
+    kernel_param: Optional[str] = None,
     compile_options: Optional[List[str]] = None,
-    method: Optional[str] = None,
     template_params: Optional[List[str]] = None,
+    template_kernel: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     debug: Optional[bool] = None,
+    disable_stream: Optional[bool] = None,
 ) -> Union[KernelFunction[R], Callable[[Callable[..., R]], KernelFunction[R]]]:
     """
     JIT decorator for defining CUDA kernels with optional template and compile parameters.
@@ -196,11 +213,13 @@ def jit(
     Args:
         kernel_path (str): Path to the CUDA kernel file.
         kernel_name (str): Name of the kernel function in the file.
+        kernel_param (str, optional): Parameter type for the kernel.
         compile_options (List[str], optional): Additional options for NVRTC compiler.
-        method (str, optional): Compilation method, default is "ptx".
-        template_params (List[str], optional): Template parameters for the kernel.
+        template_params (List[str], optional): Template parameters for the kernel parameter.
+        template_kernel (List[str], optional): Template parameters for the kernel name.
         include (List[str], optional): Additional include paths for the kernel.
         debug (bool, optional): Enables debug mode for the kernel.
+        disable_stream (bool, optional): Disables stream usage for kernel execution.
 
     Returns:
         Callable[[Callable[..., R]], KernelFunction[R]]: The decorated function.
@@ -217,12 +236,14 @@ def jit(
         kernel = JITKernel(
             kernel_path=kernel_path,
             kernel_name=kernel_name,
+            kernel_param=kernel_param,
             calling_dir=calling_dir,
             compile_options=compile_options,
             debug=debug,
             template_params=template_params,
+            template_kernel=template_kernel,
             include=include,
-            method=method,
+            disable_stream=disable_stream,
         )
 
         @functools.wraps(func)
