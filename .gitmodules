@@ -4,3 +4,6 @@
 [submodule "Tinyllama"]
 	path = demo/TinyLlama
 	url = https://github.com/arsh-guntakal/TinyLlama.git
+[submodule "Tinyllama_weights"]
+	path = demo/TinyLlama-1.1B-Chat-v1.0
+	url = https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
