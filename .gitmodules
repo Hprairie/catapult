@@ -1,3 +1,6 @@
 [submodule "ThunderKittens"]
 	path = ThunderKittens
 	url = https://github.com/Hprairie/ThunderKittens.git
+[submodule "Tinyllama"]
+	path = demo/TinyLlama
+	url = https://github.com/arsh-guntakal/TinyLlama.git
